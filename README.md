@@ -1,4 +1,4 @@
-# Codex Dictation
+# Voicepad
 
 Codex CLI와 일반 입력창에서 마이크로 말한 내용을 받아써서 넣기 위한 Windows용 받아쓰기 도구입니다.
 
@@ -58,11 +58,12 @@ Python 설치와 가상환경 준비가 번거로운 PC로 옮길 때는 `PyInst
 빌드가 끝나면 아래 파일이 생성됩니다.
 
 ```text
-dist\CodexDictation.exe
+dist\Voicepad.exe
 ```
 
 메모:
-- 런타임 데이터는 기본적으로 `%LOCALAPPDATA%\CodexDictation\` 아래에 저장됩니다.
+- 런타임 데이터는 기본적으로 `%LOCALAPPDATA%\Voicepad\` 아래에 저장됩니다.
+- 예전 `%LOCALAPPDATA%\CodexDictation\` 위치나 예전 소스 폴더 옆 런타임 파일이 남아 있으면 첫 실행 때 새 위치로 이어받습니다.
 - 예전 버전처럼 `exe` 또는 소스 폴더 옆에 `codex_dictation.settings.json`, `codex_dictation.history.jsonl`, `codex_dictation.log`가 남아 있으면 첫 실행 때 새 위치로 이어받습니다.
 - 첫 실행 시 `faster-whisper` 모델이 PC에 없다면 모델 다운로드는 여전히 한 번 필요합니다.
 - 전역 핫키는 기존처럼 `tools\AutoHotkey` 또는 `run_codex_hotkeys.bat` 흐름을 같이 쓰는 것이 가장 편합니다.
@@ -79,8 +80,8 @@ dist\CodexDictation.exe
 완료되면 아래 구조가 생성됩니다.
 
 ```text
-release\CodexDictation-win64\
-  dist\CodexDictation.exe
+release\Voicepad-win64\
+  dist\Voicepad.exe
   LICENSE
   README.md
   codex_dictation.settings.example.json
@@ -91,10 +92,10 @@ release\CodexDictation-win64\
   tools\AutoHotkey\
 ```
 
-같은 위치에 `CodexDictation-win64.zip`도 함께 만들어지므로 GitHub Releases 자산으로 올리기 좋습니다.
+같은 위치에 `Voicepad-win64.zip`도 함께 만들어지므로 GitHub Releases 자산으로 올리기 좋습니다.
 
 배포 패키지 기준 권장 실행 순서:
-1. `CodexDictation-win64.zip`을 원하는 폴더에 압축 해제
+1. `Voicepad-win64.zip`을 원하는 폴더에 압축 해제
 2. `run_codex_hotkeys.bat` 실행
 3. 이후 `F1`로 앱 실행 또는 최소화
 4. 설정 확인이 필요하면 `F2`
@@ -105,7 +106,7 @@ release\CodexDictation-win64\
 메모:
 - 배포 패키지는 `exe`, 배치 런처, `AutoHotkey` 엔진만 포함하므로 Python 설치가 없어도 실행할 수 있습니다.
 - 첫 실행 시 `faster-whisper` 모델 다운로드는 여전히 한 번 필요할 수 있습니다.
-- GitHub Releases에는 `CodexDictation-win64.zip` 하나만 올려도 사용자가 필요한 파일을 한 번에 받을 수 있습니다.
+- GitHub Releases에는 `Voicepad-win64.zip` 하나만 올려도 사용자가 필요한 파일을 한 번에 받을 수 있습니다.
 
 ## 실행
 
@@ -119,7 +120,7 @@ release\CodexDictation-win64\
 .\run_codex_dictation.bat
 ```
 
-`CodexDictation.exe`가 `dist\` 아래에 있으면 같은 런처가 자동으로 `exe`를 우선 실행합니다.
+`Voicepad.exe`가 `dist\` 아래에 있으면 같은 런처가 자동으로 `exe`를 우선 실행합니다.
 
 Codex 터미널만 빠르게 열기:
 
@@ -135,12 +136,12 @@ Codex 터미널만 빠르게 열기:
 2. `Doctor` 버튼 또는 `--doctor` 명령으로 현재 환경을 점검합니다.
 3. `Input Device`가 실제 마이크로 잡혀 있는지 확인합니다.
 4. 항상 듣기나 수동 녹음을 한 번 짧게 실행해 로그에 전사 결과가 남는지 확인합니다.
-5. 로그와 설정 파일 위치는 `%LOCALAPPDATA%\CodexDictation\` 아래를 먼저 봅니다.
+5. 로그와 설정 파일 위치는 `%LOCALAPPDATA%\Voicepad\` 아래를 먼저 봅니다.
 
 대표적으로 확인할 파일:
-- 설정: `%LOCALAPPDATA%\CodexDictation\codex_dictation.settings.json`
-- 기록: `%LOCALAPPDATA%\CodexDictation\codex_dictation.history.jsonl`
-- 로그: `%LOCALAPPDATA%\CodexDictation\codex_dictation.log`
+- 설정: `%LOCALAPPDATA%\Voicepad\codex_dictation.settings.json`
+- 기록: `%LOCALAPPDATA%\Voicepad\codex_dictation.history.jsonl`
+- 로그: `%LOCALAPPDATA%\Voicepad\codex_dictation.log`
 
 ## AutoHotkey 런처
 
@@ -207,11 +208,11 @@ Codex 터미널만 빠르게 열기:
   - `자동`, `한국어`, `영어`로 STT 언어를 바로 바꿀 수 있습니다.
   - `최대화`, `최소화`, `복원`으로 현재 포커스된 작업 창 상태를 바꿀 수 있습니다.
   - `이스케이프`, `나가기`, `일시정지`, `재생`, `앞으로 감기`, `뒤로 감기`, `세 번 앞으로 감기`, `두 번 뒤로 감기`처럼 미디어 제어 명령도 사용할 수 있습니다.
-- 기록 저장: `%LOCALAPPDATA%\CodexDictation\codex_dictation.history.jsonl`
+- 기록 저장: `%LOCALAPPDATA%\Voicepad\codex_dictation.history.jsonl`
 - 앱 안의 `History Browser`에서 최근 기록 검색, 불러오기, 다시 붙여넣기를 바로 할 수 있습니다.
-- 설정 저장: `%LOCALAPPDATA%\CodexDictation\codex_dictation.settings.json`
-- 활동 로그: `%LOCALAPPDATA%\CodexDictation\codex_dictation.log`
-- 공유용 마스킹: `python .\codex_share_safe.py --input %LOCALAPPDATA%\CodexDictation\codex_dictation.log --output outputs\codex_dictation.log.share-safe`
+- 설정 저장: `%LOCALAPPDATA%\Voicepad\codex_dictation.settings.json`
+- 활동 로그: `%LOCALAPPDATA%\Voicepad\codex_dictation.log`
+- 공유용 마스킹: `python .\codex_share_safe.py --input %LOCALAPPDATA%\Voicepad\codex_dictation.log --output outputs\codex_dictation.log.share-safe`
 - 입력 감도 보정: 설정의 `Input Gain`으로 마이크 입력 크기를 조절할 수 있습니다. 기본값 `1.0`은 기존 동작과 동일하고, 작은 마이크는 `1.2`~`2.0` 정도로 키워 볼 수 있습니다.
 - 소음 환경 튜닝: `Noise Gate Threshold`로 작은 배경 소음을 잘라내고, `Audio Preset`으로 조용한 방/보통/시끄러운 방 기준값을 빠르게 적용할 수 있습니다.
 - 오디오 프로필: 현재 마이크/always-listen 관련 값을 이름 붙여 저장하고, 나중에 `Apply Profile`로 다시 불러올 수 있습니다. `Audio Preset`은 빠른 기본값이고, 오디오 프로필은 사용자가 저장한 세부 튜닝 묶음입니다.
@@ -268,7 +269,7 @@ Codex 터미널만 빠르게 열기:
 ## 문제 해결
 
 - 앱이 안 켜지면
-  - `.\run_codex_dictation.bat`로 다시 실행해 보고, `%LOCALAPPDATA%\CodexDictation\codex_dictation.log`를 확인합니다.
+  - `.\run_codex_dictation.bat`로 다시 실행해 보고, `%LOCALAPPDATA%\Voicepad\codex_dictation.log`를 확인합니다.
 - 마이크가 안 잡히면
   - `--doctor` 출력의 `Input devices` 목록과 앱 설정의 `Input Device`가 맞는지 먼저 확인합니다.
 - 전사가 안 되면
@@ -277,7 +278,7 @@ Codex 터미널만 빠르게 열기:
   - 현재 포커스된 창이 실제 텍스트 입력 상태인지, `Output Mode`가 맞는지, 붙여넣기 차단 앱인지 확인합니다.
 - 로그를 공유해야 하면
   - 먼저 share-safe 출력으로 변환합니다.
-  - `python .\codex_share_safe.py --input %LOCALAPPDATA%\CodexDictation\codex_dictation.log --output outputs\codex_dictation.log.share-safe`
+  - `python .\codex_share_safe.py --input %LOCALAPPDATA%\Voicepad\codex_dictation.log --output outputs\codex_dictation.log.share-safe`
 
 릴리즈 전 기본 검증:
 

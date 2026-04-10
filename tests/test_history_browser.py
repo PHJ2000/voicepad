@@ -65,7 +65,7 @@ class HistoryBrowserTests(unittest.TestCase):
         harness.last_target_window = WinInfo(hwnd=77, pid=200, title="메모장", cls="Notepad", proc="notepad.exe")
         focused: list[int] = []
 
-        actions_module.fg_info = lambda: WinInfo(hwnd=1, pid=actions_module.APP_PID, title="Codex Dictation", cls="TkTopLevel", proc="pythonw.exe")
+        actions_module.fg_info = lambda: WinInfo(hwnd=1, pid=actions_module.APP_PID, title="Voicepad", cls="TkTopLevel", proc="pythonw.exe")
         actions_module.focus_window = lambda hwnd: focused.append(hwnd) or True
 
         result = harness.paste_selected_history()
@@ -78,7 +78,7 @@ class HistoryBrowserTests(unittest.TestCase):
     def test_paste_selected_history_rejects_when_no_target_window_can_be_restored(self):
         harness = _HistoryHarness()
 
-        actions_module.fg_info = lambda: WinInfo(hwnd=1, pid=actions_module.APP_PID, title="Codex Dictation", cls="TkTopLevel", proc="pythonw.exe")
+        actions_module.fg_info = lambda: WinInfo(hwnd=1, pid=actions_module.APP_PID, title="Voicepad", cls="TkTopLevel", proc="pythonw.exe")
         actions_module.focus_window = lambda hwnd: True
 
         result = harness.paste_selected_history()

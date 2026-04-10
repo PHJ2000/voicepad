@@ -9,9 +9,9 @@ $ErrorActionPreference = "Stop"
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = $scriptDir
 $buildScript = Join-Path $scriptDir "build_codex_dictation_exe.ps1"
-$exePath = Join-Path $scriptDir "dist\CodexDictation.exe"
+$exePath = Join-Path $scriptDir "dist\Voicepad.exe"
 $releaseRoot = Join-Path $scriptDir "release"
-$packageName = "CodexDictation-win64"
+$packageName = "Voicepad-win64"
 $packageRoot = Join-Path $releaseRoot $packageName
 $packageAppDir = $packageRoot
 $packageToolsDir = Join-Path $packageRoot "tools"
@@ -47,7 +47,7 @@ if (-not (Test-Path $releaseRoot)) {
 New-Item -ItemType Directory -Path (Join-Path $packageAppDir "dist") -Force | Out-Null
 New-Item -ItemType Directory -Path $packageToolsDir -Force | Out-Null
 
-Copy-Item -LiteralPath $exePath -Destination (Join-Path $packageAppDir "dist\CodexDictation.exe")
+Copy-Item -LiteralPath $exePath -Destination (Join-Path $packageAppDir "dist\Voicepad.exe")
 
 foreach ($relativePath in @(
     "LICENSE",

@@ -6,10 +6,10 @@ DetectHiddenWindows True
 SetTitleMatchMode 2
 
 projectDir := A_ScriptDir
-dictationTitle := "Codex Dictation"
+dictationTitle := "Voicepad"
 dictationLauncher := projectDir "\run_codex_dictation.bat"
 dictationScript := projectDir "\codex_dictation.py"
-dictationExe := projectDir "\dist\CodexDictation.exe"
+dictationExe := projectDir "\dist\Voicepad.exe"
 
 StartDictation(showWindow := false)
 {
@@ -44,7 +44,7 @@ IsDictationProcessRunning()
     global dictationScript, dictationExe
     escapedScript := StrReplace(dictationScript, "\", "\\")
     escapedExe := StrReplace(dictationExe, "\", "\\")
-    query := "Select ProcessId from Win32_Process where Name='pythonw.exe' or Name='python.exe' or Name='CodexDictation.exe'"
+    query := "Select ProcessId from Win32_Process where Name='pythonw.exe' or Name='python.exe' or Name='Voicepad.exe' or Name='CodexDictation.exe'"
     for proc in ComObjGet("winmgmts:").ExecQuery(query)
     {
         cmd := ""
@@ -95,7 +95,7 @@ StartOrMinimizeDictation()
 
     if !FileExist(dictationLauncher)
     {
-        MsgBox "Dictation launcher not found.", "Codex Dictation", "Icon!"
+        MsgBox "Voicepad launcher not found.", "Voicepad", "Icon!"
         return
     }
 

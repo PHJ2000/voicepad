@@ -17,17 +17,40 @@ def _legacy_runtime_root() -> Path:
 def _user_data_root() -> Path:
     local_app_data = os.environ.get("LOCALAPPDATA", "").strip()
     if local_app_data:
-        return Path(local_app_data).resolve() / "CodexDictation"
+        return Path(local_app_data).resolve() / "Voicepad"
     if sys.platform.startswith("win"):
-        return Path.home().resolve() / "AppData" / "Local" / "CodexDictation"
-    return Path.home().resolve() / ".codex-dictation"
+        return Path.home().resolve() / "AppData" / "Local" / "Voicepad"
+    return Path.home().resolve() / ".voicepad"
 
 
-APP_NAME = "Codex Dictation"
+def _legacy_user_data_roots() -> tuple[Path, ...]:
+    roots: list[Path] = []
+    local_app_data = os.environ.get("LOCALAPPDATA", "").strip()
+    if local_app_data:
+        base = Path(local_app_data).resolve()
+        roots.append(base / "CodexDictation")
+    elif sys.platform.startswith("win"):
+        roots.append(Path.home().resolve() / "AppData" / "Local" / "CodexDictation")
+    else:
+        roots.append(Path.home().resolve() / ".codex-dictation")
+
+    unique_roots: list[Path] = []
+    seen: set[str] = set()
+    for root in roots:
+        key = str(root)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique_roots.append(root)
+    return tuple(unique_roots)
+
+
+APP_NAME = "Voicepad"
 APP_VERSION = "0.1.0-beta.1"
 APP_TITLE = f"{APP_NAME} v{APP_VERSION}"
 LEGACY_ROOT = _legacy_runtime_root()
 DATA_ROOT = _user_data_root()
+LEGACY_DATA_ROOTS = _legacy_user_data_roots()
 ROOT = DATA_ROOT
 SETTINGS_FILENAME = "codex_dictation.settings.json"
 HISTORY_FILENAME = "codex_dictation.history.jsonl"
@@ -71,6 +94,10 @@ def ensure_runtime_paths() -> None:
     _migrate_legacy_file(LEGACY_SETTINGS_PATH, SETTINGS_PATH)
     _migrate_legacy_file(LEGACY_HISTORY_PATH, HISTORY_PATH)
     _migrate_legacy_file(LEGACY_LOG_PATH, LOG_PATH)
+    for legacy_root in LEGACY_DATA_ROOTS:
+        _migrate_legacy_file(legacy_root / SETTINGS_FILENAME, SETTINGS_PATH)
+        _migrate_legacy_file(legacy_root / HISTORY_FILENAME, HISTORY_PATH)
+        _migrate_legacy_file(legacy_root / LOG_FILENAME, LOG_PATH)
 
 LANGUAGE_UI_LABELS = {"auto": "자동", "ko": "한국어", "en": "영어"}
 LLM_PROFILE_MODELS = {"balanced": "gemma3:4b", "accurate": "gemma3:12b"}
