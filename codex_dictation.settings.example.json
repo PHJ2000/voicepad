@@ -1,5 +1,5 @@
 {
-  "input_device": "\ub9c8\uc774\ud06c(3- USB Audio Device)",
+  "input_device": "",
   "sample_rate": 16000,
   "channels": 1,
   "input_gain": 1.0,
@@ -32,7 +32,7 @@
   "voice_trigger_min_rms": 0.018,
   "voice_trigger_ratio": 2.2,
   "voice_trigger_consecutive_blocks": 2,
-  "llm_correction_enabled": true,
+  "llm_correction_enabled": false,
   "llm_profile": "balanced",
   "llm_model": "gemma3:4b",
   "llm_base_url": "http://127.0.0.1:11434",

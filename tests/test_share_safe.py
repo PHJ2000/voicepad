@@ -37,8 +37,8 @@ class ShareSafeTextTests(unittest.TestCase):
 
     def test_prefers_project_relative_path(self):
         sample = PROJECT_DIR / "README.md"
-        masked = mask_share_safe_text(str(sample), project_root=PROJECT_DIR.parent)
-        self.assertEqual(masked, "codex-dictation/README.md")
+        masked = mask_share_safe_text(str(sample), project_root=PROJECT_DIR)
+        self.assertEqual(masked, "README.md")
 
 
 class ShareSafeJsonTests(unittest.TestCase):

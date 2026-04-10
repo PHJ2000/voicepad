@@ -20,12 +20,12 @@ Codex CLI와 일반 입력창에서 마이크로 말한 내용을 받아써서 �
 
 ## 환경
 
-- 현재 이 저장소 기준으로는 루트의 `.venv`, `tools\AutoHotkey`, 그리고 `codex-dictation\` 디렉토리 기준으로 실행 흐름이 맞춰져 있습니다.
+- 현재 저장소 기준으로는 루트의 `.venv`와 `tools\AutoHotkey` 기준으로 실행 흐름이 맞춰져 있습니다.
 - 그래서 이 PC처럼 이미 세팅된 환경에서는 보통 추가 설정 없이 바로 실행하면 됩니다.
 - 새 PC나 새 환경으로 옮길 때만 아래 정도가 필요합니다.
   - Python 설치
   - `.venv` 생성
-  - `pip install -r codex-dictation\requirements-dictation.txt`
+  - `pip install -r requirements-dictation.txt`
   - 마이크 장치 인식 확인
 - CUDA GPU는 있으면 더 빠르지만 필수는 아닙니다.
 
@@ -36,7 +36,7 @@ Codex CLI와 일반 입력창에서 마이크로 말한 내용을 받아써서 �
 ```powershell
 python -m venv .venv
 .venv\Scripts\python.exe -m pip install -U pip
-.venv\Scripts\python.exe -m pip install -r codex-dictation\requirements-dictation.txt
+.venv\Scripts\python.exe -m pip install -r requirements-dictation.txt
 ```
 
 이미 이 저장소의 `.venv`를 쓰고 있다면 마지막 줄만 실행하면 됩니다.
@@ -46,13 +46,13 @@ python -m venv .venv
 Python 설치와 가상환경 준비가 번거로운 PC로 옮길 때는 `PyInstaller`로 단일 `exe`를 만들 수 있습니다.
 
 ```powershell
-codex-dictation\build_codex_dictation_exe.ps1
+.\build_codex_dictation_exe.ps1
 ```
 
 빌드가 끝나면 아래 파일이 생성됩니다.
 
 ```text
-codex-dictation\dist\CodexDictation.exe
+dist\CodexDictation.exe
 ```
 
 메모:
@@ -67,19 +67,21 @@ codex-dictation\dist\CodexDictation.exe
 이 스크립트는 `worktree`에서 실행하더라도 연결된 원본 저장소의 `.venv`를 찾아 빌드를 시도합니다. 필요하면 `-PythonPath`로 사용할 Python을 직접 지정할 수 있습니다.
 
 ```powershell
-codex-dictation\package_codex_dictation_release.ps1
+.\package_codex_dictation_release.ps1
 ```
 
 완료되면 아래 구조가 생성됩니다.
 
 ```text
-codex-dictation\release\CodexDictation-win64\
-  codex-dictation\
-    dist\CodexDictation.exe
-    README.md
-    launch_codex_dictation.ahk
-    run_codex_dictation.bat
-    run_codex_hotkeys.bat
+release\CodexDictation-win64\
+  dist\CodexDictation.exe
+  LICENSE
+  README.md
+  codex_dictation.settings.example.json
+  launch_codex_dictation.ahk
+  run_codex_dictation.bat
+  run_codex_hotkeys.bat
+  run_codex_terminal.bat
   tools\AutoHotkey\
 ```
 
@@ -87,12 +89,12 @@ codex-dictation\release\CodexDictation-win64\
 
 배포 패키지 기준 권장 실행 순서:
 1. `CodexDictation-win64.zip`을 원하는 폴더에 압축 해제
-2. `codex-dictation\run_codex_hotkeys.bat` 실행
+2. `run_codex_hotkeys.bat` 실행
 3. 이후 `F1`로 앱 실행 또는 최소화
 4. 설정 확인이 필요하면 `F2`
 
 핫키 없이 앱만 먼저 확인하고 싶다면:
-1. `codex-dictation\run_codex_dictation.bat`로 앱 본체만 직접 실행
+1. `run_codex_dictation.bat`로 앱 본체만 직접 실행
 
 메모:
 - 배포 패키지는 `exe`, 배치 런처, `AutoHotkey` 엔진만 포함하므로 Python 설치가 없어도 실행할 수 있습니다.
@@ -102,21 +104,21 @@ codex-dictation\release\CodexDictation-win64\
 ## 실행
 
 ```powershell
-.venv\Scripts\python.exe codex-dictation\codex_dictation.py
+.venv\Scripts\python.exe .\codex_dictation.py
 ```
 
-`codex-dictation` 폴더 안의 런처로 실행:
+루트 런처로 실행:
 
 ```powershell
-codex-dictation\run_codex_dictation.bat
+.\run_codex_dictation.bat
 ```
 
-`CodexDictation.exe`가 `codex-dictation\dist\` 아래에 있으면 같은 런처가 자동으로 `exe`를 우선 실행합니다.
+`CodexDictation.exe`가 `dist\` 아래에 있으면 같은 런처가 자동으로 `exe`를 우선 실행합니다.
 
 Codex 터미널만 빠르게 열기:
 
 ```powershell
-codex-dictation\run_codex_terminal.bat
+.\run_codex_terminal.bat
 ```
 
 ## 첫 실행 체크리스트
@@ -136,7 +138,7 @@ codex-dictation\run_codex_terminal.bat
 
 ## AutoHotkey 런처
 
-`codex-dictation\launch_codex_dictation.ahk`를 AutoHotkey v2로 실행하면 전역 단축키를 쓸 수 있습니다.
+`launch_codex_dictation.ahk`를 AutoHotkey v2로 실행하면 전역 단축키를 쓸 수 있습니다.
 이 저장소는 AutoHotkey 엔진을 `tools\AutoHotkey` 아래에 로컬로 배치해두었고, 시작프로그램 등록도 해둘 수 있습니다.
 
 현재 기본 전역 단축키:
@@ -148,7 +150,7 @@ codex-dictation\run_codex_terminal.bat
 `F1`로 실행할 때는 현재 작업 중이던 창으로 다시 돌아가도록 맞춰져 있어서, 터미널뿐 아니라 일반 입력창에서도 바로 이어서 말할 수 있습니다.
 
 편하게 실행하는 방법:
-1. `codex-dictation\run_codex_hotkeys.bat` 실행
+1. `.\run_codex_hotkeys.bat` 실행
 2. 이후엔 `F1`만 누르면 됩니다
 3. 시작프로그램에 등록해두면 로그인 후에도 자동으로 살아납니다
 
@@ -203,7 +205,7 @@ codex-dictation\run_codex_terminal.bat
 - 앱 안의 `History Browser`에서 최근 기록 검색, 불러오기, 다시 붙여넣기를 바로 할 수 있습니다.
 - 설정 저장: `%LOCALAPPDATA%\CodexDictation\codex_dictation.settings.json`
 - 활동 로그: `%LOCALAPPDATA%\CodexDictation\codex_dictation.log`
-- 공유용 마스킹: `python codex-dictation/codex_share_safe.py --input %LOCALAPPDATA%\CodexDictation\codex_dictation.log --output outputs\codex_dictation.log.share-safe`
+- 공유용 마스킹: `python .\codex_share_safe.py --input %LOCALAPPDATA%\CodexDictation\codex_dictation.log --output outputs\codex_dictation.log.share-safe`
 - 입력 감도 보정: 설정의 `Input Gain`으로 마이크 입력 크기를 조절할 수 있습니다. 기본값 `1.0`은 기존 동작과 동일하고, 작은 마이크는 `1.2`~`2.0` 정도로 키워 볼 수 있습니다.
 - 소음 환경 튜닝: `Noise Gate Threshold`로 작은 배경 소음을 잘라내고, `Audio Preset`으로 조용한 방/보통/시끄러운 방 기준값을 빠르게 적용할 수 있습니다.
 - 오디오 프로필: 현재 마이크/always-listen 관련 값을 이름 붙여 저장하고, 나중에 `Apply Profile`로 다시 불러올 수 있습니다. `Audio Preset`은 빠른 기본값이고, 오디오 프로필은 사용자가 저장한 세부 튜닝 묶음입니다.
@@ -242,25 +244,25 @@ codex-dictation\run_codex_terminal.bat
 버전 확인:
 
 ```powershell
-.venv\Scripts\python.exe codex-dictation\codex_dictation.py --version
+.venv\Scripts\python.exe .\codex_dictation.py --version
 ```
 
 환경 점검:
 
 ```powershell
-.venv\Scripts\python.exe codex-dictation\codex_dictation.py --doctor
+.venv\Scripts\python.exe .\codex_dictation.py --doctor
 ```
 
 파일 전사 테스트:
 
 ```powershell
-.venv\Scripts\python.exe codex-dictation\codex_dictation.py --transcribe-file some_audio.wav --model tiny --language ko
+.venv\Scripts\python.exe .\codex_dictation.py --transcribe-file some_audio.wav --model tiny --language ko
 ```
 
 ## 문제 해결
 
 - 앱이 안 켜지면
-  - `codex-dictation\run_codex_dictation.bat`로 다시 실행해 보고, `%LOCALAPPDATA%\CodexDictation\codex_dictation.log`를 확인합니다.
+  - `.\run_codex_dictation.bat`로 다시 실행해 보고, `%LOCALAPPDATA%\CodexDictation\codex_dictation.log`를 확인합니다.
 - 마이크가 안 잡히면
   - `--doctor` 출력의 `Input devices` 목록과 앱 설정의 `Input Device`가 맞는지 먼저 확인합니다.
 - 전사가 안 되면
@@ -269,12 +271,12 @@ codex-dictation\run_codex_terminal.bat
   - 현재 포커스된 창이 실제 텍스트 입력 상태인지, `Output Mode`가 맞는지, 붙여넣기 차단 앱인지 확인합니다.
 - 로그를 공유해야 하면
   - 먼저 share-safe 출력으로 변환합니다.
-  - `python codex-dictation/codex_share_safe.py --input %LOCALAPPDATA%\CodexDictation\codex_dictation.log --output outputs\codex_dictation.log.share-safe`
+  - `python .\codex_share_safe.py --input %LOCALAPPDATA%\CodexDictation\codex_dictation.log --output outputs\codex_dictation.log.share-safe`
 
 릴리즈 전 기본 검증:
 
 ```powershell
-.venv\Scripts\python.exe -m unittest discover -s codex-dictation\tests -v
+.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
 ## 메모

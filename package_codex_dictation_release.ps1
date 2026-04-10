@@ -7,13 +7,13 @@ param(
 $ErrorActionPreference = "Stop"
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$repoRoot = Split-Path $scriptDir -Parent
+$repoRoot = $scriptDir
 $buildScript = Join-Path $scriptDir "build_codex_dictation_exe.ps1"
 $exePath = Join-Path $scriptDir "dist\CodexDictation.exe"
 $releaseRoot = Join-Path $scriptDir "release"
 $packageName = "CodexDictation-win64"
 $packageRoot = Join-Path $releaseRoot $packageName
-$packageAppDir = Join-Path $packageRoot "codex-dictation"
+$packageAppDir = $packageRoot
 $packageToolsDir = Join-Path $packageRoot "tools"
 $packageZip = Join-Path $releaseRoot ($packageName + ".zip")
 $autoHotkeyDir = Join-Path $repoRoot "tools\AutoHotkey"
@@ -50,10 +50,13 @@ New-Item -ItemType Directory -Path $packageToolsDir -Force | Out-Null
 Copy-Item -LiteralPath $exePath -Destination (Join-Path $packageAppDir "dist\CodexDictation.exe")
 
 foreach ($relativePath in @(
+    "LICENSE",
     "README.md",
+    "codex_dictation.settings.example.json",
     "launch_codex_dictation.ahk",
     "run_codex_dictation.bat",
-    "run_codex_hotkeys.bat"
+    "run_codex_hotkeys.bat",
+    "run_codex_terminal.bat"
 )) {
     Copy-Item -LiteralPath (Join-Path $scriptDir $relativePath) -Destination (Join-Path $packageAppDir $relativePath)
 }

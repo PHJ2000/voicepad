@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.venv/
+build/
+dist/
+release/
+*.log
+outputs/
+codex_dictation.settings.json
+codex_dictation.history.jsonl
+codex_dictation.log
