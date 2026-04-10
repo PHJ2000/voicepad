@@ -1,7 +1,7 @@
 @echo off
 setlocal
 set "APP_DIR=%~dp0"
-set "DIST_EXE=%APP_DIR%dist\CodexDictation.exe"
+set "DIST_EXE=%APP_DIR%dist\Voicepad.exe"
 set "PYTHONW=%APP_DIR%.venv\Scripts\pythonw.exe"
 set "PYTHON=%APP_DIR%.venv\Scripts\python.exe"
 

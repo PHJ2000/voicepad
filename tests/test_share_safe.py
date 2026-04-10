@@ -15,9 +15,9 @@ from codex_share_safe import export_share_safe_file, mask_share_safe_text, sanit
 
 class ShareSafeTextTests(unittest.TestCase):
     def test_masks_home_path_and_local_host(self):
-        text = r"Open C:\Users\ParkJaeHong\AppData\Local\CodexDictation\codex_dictation.log via http://127.0.0.1:11434"
+        text = r"Open C:\Users\ParkJaeHong\AppData\Local\Voicepad\codex_dictation.log via http://127.0.0.1:11434"
         masked = mask_share_safe_text(text)
-        self.assertIn("<user-home>/AppData/Local/CodexDictation/codex_dictation.log", masked)
+        self.assertIn("<user-home>/AppData/Local/Voicepad/codex_dictation.log", masked)
         self.assertIn("http://<local-host>:11434", masked)
         self.assertNotIn("ParkJaeHong", masked)
         self.assertNotIn("127.0.0.1", masked)

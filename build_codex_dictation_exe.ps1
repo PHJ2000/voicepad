@@ -93,7 +93,7 @@ if ($LASTEXITCODE -ne 0) {
     --clean `
     --onefile `
     --windowed `
-    --name CodexDictation `
+    --name Voicepad `
     --distpath $distDir `
     --workpath $workDir `
     --specpath $workDir `
@@ -125,7 +125,7 @@ if ($LASTEXITCODE -ne 0) {
     throw "PyInstaller 빌드에 실패했습니다."
 }
 
-$exePath = Join-Path $distDir "CodexDictation.exe"
+$exePath = Join-Path $distDir "Voicepad.exe"
 if (-not (Test-Path $exePath)) {
     throw "빌드는 끝났지만 실행 파일이 생성되지 않았습니다: $exePath"
 }
