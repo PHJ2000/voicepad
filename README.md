@@ -94,6 +94,8 @@ release\Voicepad-win64\
 
 같은 위치에 `Voicepad-win64.zip`도 함께 만들어지므로 GitHub Releases 자산으로 올리기 좋습니다.
 
+GitHub Releases 기준 태그 규칙, 릴리즈 노트 형식, 업로드 전 체크리스트는 [docs/release-process.md](./docs/release-process.md)에 따로 정리되어 있습니다.
+
 배포 패키지 기준 권장 실행 순서:
 1. `Voicepad-win64.zip`을 원하는 폴더에 압축 해제
 2. `run_codex_hotkeys.bat` 실행
@@ -285,6 +287,8 @@ Codex 터미널만 빠르게 열기:
 ```powershell
 .venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
+
+릴리즈 직전에는 위 검증에 더해 `.\package_codex_dictation_release.ps1`까지 다시 실행하고, 상세 순서는 [docs/release-process.md](./docs/release-process.md)를 기준으로 맞춥니다.
 
 ## 메모
 
