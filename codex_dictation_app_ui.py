@@ -36,13 +36,14 @@ class AppUIMixin:
         ttk.Label(qs, textvariable=self.hotkey_feedback, wraplength=920, justify="left").grid(row=5, column=0, sticky="w", pady=(6, 0))
         quick_btn = ttk.Frame(qs)
         quick_btn.grid(row=6, column=0, sticky="ew", pady=(10, 0))
-        for index in range(5):
+        for index in range(3):
             quick_btn.columnconfigure(index, weight=1)
         ttk.Button(quick_btn, text="Doctor 보기", command=self.show_doctor).grid(row=0, column=0, sticky="ew")
         ttk.Button(quick_btn, text="Doctor 복사", command=self.copy_doctor_report).grid(row=0, column=1, sticky="ew", padx=6)
-        ttk.Button(quick_btn, text="설정 열기", command=self.open_settings_path).grid(row=0, column=2, sticky="ew")
-        ttk.Button(quick_btn, text="로그 열기", command=self.open_log_path).grid(row=0, column=3, sticky="ew", padx=6)
-        ttk.Button(quick_btn, text="데이터 폴더", command=self.open_data_root).grid(row=0, column=4, sticky="ew")
+        ttk.Button(quick_btn, text="진단 번들", command=self.export_diagnostic_bundle).grid(row=0, column=2, sticky="ew")
+        ttk.Button(quick_btn, text="설정 열기", command=self.open_settings_path).grid(row=1, column=0, sticky="ew", pady=(6, 0))
+        ttk.Button(quick_btn, text="로그 열기", command=self.open_log_path).grid(row=1, column=1, sticky="ew", padx=6, pady=(6, 0))
+        ttk.Button(quick_btn, text="데이터 폴더", command=self.open_data_root).grid(row=1, column=2, sticky="ew", pady=(6, 0))
         ttk.Label(head, textvariable=self.audio_status, font=("Consolas", 9)).grid(row=5, column=0, columnspan=2, sticky="w", pady=(8, 0))
         ttk.Label(head, textvariable=self.llm_status, font=("Consolas", 9)).grid(row=6, column=0, columnspan=2, sticky="w", pady=(4, 0))
         top = ttk.Frame(self.root, padding=(12, 0, 12, 0))

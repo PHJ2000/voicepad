@@ -15,7 +15,7 @@ import soundfile as sf
 from tkinter import messagebox
 
 from codex_dictation_audio import trim_silence
-from codex_dictation_diagnostics import doctor, first_run_guidance
+from codex_dictation_diagnostics import create_diagnostic_bundle, doctor, first_run_guidance
 from codex_dictation_settings import (
     APP_NAME,
     DATA_ROOT,
@@ -535,6 +535,16 @@ class AppRuntimeMixin:
         self.last_doctor_report = doctor(self.s)
         self.copy_clip(self.last_doctor_report)
         self.log("Doctor report copied to clipboard")
+
+    def export_diagnostic_bundle(self):
+        self.last_doctor_report = doctor(self.s)
+        bundle_path = create_diagnostic_bundle(self.s, doctor_report=self.last_doctor_report)
+        self.log(f"Diagnostic bundle exported: {bundle_path}")
+        try:
+            messagebox.showinfo(APP_NAME, f"진단 번들을 저장했습니다.\n{bundle_path}")
+        except Exception:
+            pass
+        return bundle_path
 
     def _open_path(self, path: Path, *, fallback_to_parent: bool = False, label: str = "path") -> bool:
         target = path
