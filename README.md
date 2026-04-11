@@ -146,16 +146,22 @@ Codex 터미널만 빠르게 열기:
 
 처음 실행할 때는 아래 순서로 확인하는 것이 가장 빠릅니다.
 
-1. 앱이 켜지면 상단 제목에 버전이 보이는지 확인합니다.
-2. `Doctor` 버튼 또는 `--doctor` 명령으로 현재 환경을 점검합니다.
-3. `Input Device`가 실제 마이크로 잡혀 있는지 확인합니다.
-4. 항상 듣기나 수동 녹음을 한 번 짧게 실행해 로그에 전사 결과가 남는지 확인합니다.
-5. 로그와 설정 파일 위치는 `%LOCALAPPDATA%\Voicepad\` 아래를 먼저 봅니다.
+1. 앱이 켜지면 상단 `Quick Start` 박스에서 `마이크`, `모델`, `단축키` 상태를 먼저 봅니다.
+2. `Input Device`가 실제 마이크로 잡혀 있는지 확인합니다.
+3. `F8` 수동 녹음 또는 `F7` 항상 듣기로 한 문장만 짧게 테스트합니다.
+4. 결과가 없으면 `Doctor 보기` 또는 `Doctor 복사`로 현재 환경을 확인합니다.
+5. `설정 열기`, `로그 열기`, `데이터 폴더` 버튼으로 바로 관련 위치를 엽니다.
 
 대표적으로 확인할 파일:
 - 설정: `%LOCALAPPDATA%\Voicepad\codex_dictation.settings.json`
 - 기록: `%LOCALAPPDATA%\Voicepad\codex_dictation.history.jsonl`
 - 로그: `%LOCALAPPDATA%\Voicepad\codex_dictation.log`
+
+앱 내부 빠른 안내:
+- `Quick Start` 첫 줄: 현재 마이크 감지 수, 모델 준비 상태, 단축키 등록 상태
+- `Doctor 보기`: 활동 로그 창에 전체 진단 결과 출력
+- `Doctor 복사`: 이슈나 채팅에 붙여넣기 쉬운 진단 결과 복사
+- `설정 열기` / `로그 열기` / `데이터 폴더`: 대표 실패 상황을 바로 확인할 수 있는 빠른 이동 버튼
 
 ## AutoHotkey 런처
 

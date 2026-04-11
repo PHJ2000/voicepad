@@ -35,6 +35,47 @@ from codex_dictation_targeting import (
 )
 
 
+def first_run_guidance(
+    settings: Settings,
+    *,
+    input_device_count: int | None,
+    model_status: str = "",
+    hotkey_status: str = "",
+) -> tuple[str, str, str, str]:
+    if input_device_count is None:
+        microphone_status = "마이크 감지 확인 전"
+    elif input_device_count <= 0:
+        microphone_status = "마이크 확인 필요"
+    else:
+        microphone_status = f"마이크 {input_device_count}개 감지"
+
+    configured_input = settings.input_device.strip() or "자동 선택"
+    model_detail = model_status or f"모델 {settings.whisper_model} 준비 중"
+    hotkey_detail = hotkey_status or "단축키 등록 대기"
+    summary = f"빠른 점검 | {microphone_status} | {model_detail} | {hotkey_detail}"
+    checklist = (
+        f"입력 장치: {configured_input} | "
+        "1. Input Device 확인  2. F8 또는 F7로 짧게 말해보기  3. 결과가 없으면 Doctor 실행"
+    )
+    paths = (
+        f"설정 {display_path(SETTINGS_PATH)} | "
+        f"로그 {display_path(LOG_PATH)} | "
+        f"데이터 {display_path(DATA_ROOT, base=DATA_ROOT.parent)}"
+    )
+
+    failure_hints: list[str] = []
+    if input_device_count is not None and input_device_count <= 0:
+        failure_hints.append("마이크가 안 보이면 장치 연결 후 Doctor의 Input devices를 확인")
+    if "실패" in model_detail or "건너뜀" in model_detail:
+        failure_hints.append("모델 준비가 느리면 첫 다운로드 또는 warmup 로그를 확인")
+    if "실패" in hotkey_detail or "불가" in hotkey_detail:
+        failure_hints.append("단축키가 안 먹으면 keyboard 모듈과 실행 권한을 확인")
+    if not failure_hints:
+        failure_hints.append("문제가 생기면 Doctor -> 로그 -> 설정 순서로 확인")
+    trouble = "대표 실패: " + " | ".join(failure_hints)
+    return summary, checklist, paths, trouble
+
+
 def doctor(settings: Settings | None = None) -> str:
     lines = [
         f"{APP_NAME} doctor",

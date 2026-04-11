@@ -9,7 +9,7 @@ from codex_dictation_settings import APP_NAME, APP_VERSION, AUDIO_PRESET_UI_LABE
 class AppUIMixin:
     def _ui(self):
         self.root.columnconfigure(0, weight=1)
-        self.root.rowconfigure(4, weight=1)
+        self.root.rowconfigure(5, weight=1)
         head = ttk.Frame(self.root, padding=12)
         head.grid(row=0, column=0, sticky="ew")
         head.columnconfigure(1, weight=1)
@@ -19,12 +19,32 @@ class AppUIMixin:
         ttk.Label(head, textvariable=self.target).grid(row=2, column=0, columnspan=2, sticky="w", pady=(6, 0))
         ttk.Label(
             head,
-            text="F7 항상 듣기, F8 수동 녹음, F9 마지막 문장, F10 출력 모드, F11 Enter 전환 | 음성 명령: 보내, 지워, 다 지워, 전체 비워, 다시 ..., 복사, 붙여넣기, 잘라, 취소, 되돌려, 자동/한국어/영어, 최대화/최소화/복원, 이스케이프/나가기, 일시정지/재생, 앞으로/뒤로 감기",
+            text="F7 항상 듣기, F8 수동 녹음, F9 마지막 문장, F10 출력 모드, F11 Enter 전환",
         ).grid(row=3, column=0, columnspan=2, sticky="w", pady=(6, 0))
-        ttk.Label(head, textvariable=self.audio_status, font=("Consolas", 9)).grid(row=4, column=0, columnspan=2, sticky="w", pady=(8, 0))
-        ttk.Label(head, textvariable=self.llm_status, font=("Consolas", 9)).grid(row=5, column=0, columnspan=2, sticky="w", pady=(4, 0))
+        ttk.Label(
+            head,
+            text="음성 명령: 보내, 지워, 다 지워, 전체 비워, 다시 ..., 복사, 붙여넣기, 잘라, 취소, 되돌려, 자동/한국어/영어, 최대화/최소화/복원, 이스케이프/나가기, 일시정지/재생, 앞으로/뒤로 감기",
+        ).grid(row=4, column=0, columnspan=2, sticky="w", pady=(2, 0))
+        qs = ttk.LabelFrame(self.root, text="Quick Start", padding=12)
+        qs.grid(row=1, column=0, sticky="ew", padx=12, pady=(0, 6))
+        qs.columnconfigure(0, weight=1)
+        ttk.Label(qs, textvariable=self.quick_start_summary, font=("Segoe UI", 10, "bold")).grid(row=0, column=0, sticky="w")
+        ttk.Label(qs, textvariable=self.quick_start_checklist, wraplength=920, justify="left").grid(row=1, column=0, sticky="w", pady=(6, 0))
+        ttk.Label(qs, textvariable=self.quick_start_paths, font=("Consolas", 9), wraplength=920, justify="left").grid(row=2, column=0, sticky="w", pady=(6, 0))
+        ttk.Label(qs, textvariable=self.quick_start_trouble, wraplength=920, justify="left").grid(row=3, column=0, sticky="w", pady=(6, 0))
+        quick_btn = ttk.Frame(qs)
+        quick_btn.grid(row=4, column=0, sticky="ew", pady=(10, 0))
+        for index in range(5):
+            quick_btn.columnconfigure(index, weight=1)
+        ttk.Button(quick_btn, text="Doctor 보기", command=self.show_doctor).grid(row=0, column=0, sticky="ew")
+        ttk.Button(quick_btn, text="Doctor 복사", command=self.copy_doctor_report).grid(row=0, column=1, sticky="ew", padx=6)
+        ttk.Button(quick_btn, text="설정 열기", command=self.open_settings_path).grid(row=0, column=2, sticky="ew")
+        ttk.Button(quick_btn, text="로그 열기", command=self.open_log_path).grid(row=0, column=3, sticky="ew", padx=6)
+        ttk.Button(quick_btn, text="데이터 폴더", command=self.open_data_root).grid(row=0, column=4, sticky="ew")
+        ttk.Label(head, textvariable=self.audio_status, font=("Consolas", 9)).grid(row=5, column=0, columnspan=2, sticky="w", pady=(8, 0))
+        ttk.Label(head, textvariable=self.llm_status, font=("Consolas", 9)).grid(row=6, column=0, columnspan=2, sticky="w", pady=(4, 0))
         top = ttk.Frame(self.root, padding=(12, 0, 12, 0))
-        top.grid(row=1, column=0, sticky="nsew")
+        top.grid(row=2, column=0, sticky="nsew")
         top.columnconfigure((0, 1), weight=1)
         left = ttk.LabelFrame(top, text="Recording", padding=12)
         right = ttk.LabelFrame(top, text="Output, Target, Hotkeys", padding=12)
@@ -95,12 +115,12 @@ class AppUIMixin:
         ]:
             ttk.Button(btn, text=text, command=cmd).grid(row=row, column=col, sticky="ew", padx=6 if col == 1 else (0 if col == 0 else 6), pady=(8 if row else 0, 0))
         tf = ttk.LabelFrame(self.root, text="Latest Transcript", padding=12)
-        tf.grid(row=2, column=0, sticky="nsew", padx=12, pady=(12, 6))
+        tf.grid(row=3, column=0, sticky="nsew", padx=12, pady=(12, 6))
         tf.columnconfigure(0, weight=1)
         self.txt = tk.Text(tf, wrap="word", height=8, font=("Segoe UI", 10))
         self.txt.grid(row=0, column=0, sticky="nsew")
         hf = ttk.LabelFrame(self.root, text="History Browser", padding=12)
-        hf.grid(row=3, column=0, sticky="nsew", padx=12, pady=6)
+        hf.grid(row=4, column=0, sticky="nsew", padx=12, pady=6)
         hf.columnconfigure(0, weight=1)
         ttk.Label(hf, text="Search").grid(row=0, column=0, sticky="w")
         ttk.Entry(hf, textvariable=self.history_query).grid(row=0, column=1, sticky="ew", padx=(8, 8))
@@ -117,7 +137,7 @@ class AppUIMixin:
         ttk.Button(history_btn, text="Copy Selected", command=self.copy_selected_history).grid(row=0, column=1, sticky="ew", padx=6)
         ttk.Button(history_btn, text="Paste Selected", command=self.paste_selected_history).grid(row=0, column=2, sticky="ew")
         lf = ttk.LabelFrame(self.root, text="Activity", padding=12)
-        lf.grid(row=4, column=0, sticky="nsew", padx=12, pady=(6, 12))
+        lf.grid(row=5, column=0, sticky="nsew", padx=12, pady=(6, 12))
         lf.columnconfigure(0, weight=1)
         lf.rowconfigure(0, weight=1)
         self.log_text = tk.Text(lf, wrap="word", font=("Consolas", 10))

@@ -30,6 +30,7 @@ from codex_dictation_settings import (  # noqa: E402
     resolve_llm_model,
     snapshot_audio_profile,
 )
+from codex_dictation_diagnostics import first_run_guidance  # noqa: E402
 from codex_dictation_utils import (  # noqa: E402
     filter_history_entries,
     format_history_entry,
@@ -112,6 +113,33 @@ class SettingsNormalizationTests(unittest.TestCase):
         self.assertAlmostEqual(reapplied.input_gain, 1.7)
         self.assertFalse(reapplied.always_listen_enabled)
         self.assertEqual(reapplied.audio_preset, DEFAULT_AUDIO_PRESET)
+
+    def test_first_run_guidance_reports_ready_state(self):
+        settings = Settings(input_device="USB Mic", whisper_model="large-v3-turbo")
+        summary, checklist, paths, trouble = first_run_guidance(
+            settings,
+            input_device_count=2,
+            model_status="모델 준비됨 (large-v3-turbo)",
+            hotkey_status="단축키 등록됨",
+        )
+        self.assertIn("마이크 2개 감지", summary)
+        self.assertIn("모델 준비됨", summary)
+        self.assertIn("Input Device 확인", checklist)
+        self.assertIn("settings.json", paths)
+        self.assertIn("Doctor -> 로그 -> 설정", trouble)
+
+    def test_first_run_guidance_surfaces_common_failures(self):
+        settings = Settings(input_device="", whisper_model="small")
+        summary, _checklist, _paths, trouble = first_run_guidance(
+            settings,
+            input_device_count=0,
+            model_status="모델 준비 건너뜀 (download pending)",
+            hotkey_status="단축키 사용 불가 (keyboard missing)",
+        )
+        self.assertIn("마이크 확인 필요", summary)
+        self.assertIn("마이크가 안 보이면", trouble)
+        self.assertIn("모델 준비가 느리면", trouble)
+        self.assertIn("단축키가 안 먹으면", trouble)
 
 
 class UtilsTests(unittest.TestCase):
