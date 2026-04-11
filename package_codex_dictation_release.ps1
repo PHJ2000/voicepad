@@ -54,6 +54,7 @@ foreach ($relativePath in @(
     "README.md",
     "codex_dictation.settings.example.json",
     "launch_codex_dictation.ahk",
+    "run_voicepad.bat",
     "run_codex_dictation.bat",
     "run_codex_hotkeys.bat",
     "run_codex_terminal.bat"

@@ -66,7 +66,7 @@ dist\Voicepad.exe
 - 예전 `%LOCALAPPDATA%\CodexDictation\` 위치나 예전 소스 폴더 옆 런타임 파일이 남아 있으면 첫 실행 때 새 위치로 이어받습니다.
 - 예전 버전처럼 `exe` 또는 소스 폴더 옆에 `codex_dictation.settings.json`, `codex_dictation.history.jsonl`, `codex_dictation.log`가 남아 있으면 첫 실행 때 새 위치로 이어받습니다.
 - 첫 실행 시 `faster-whisper` 모델이 PC에 없다면 모델 다운로드는 여전히 한 번 필요합니다.
-- 전역 핫키는 기존처럼 `tools\AutoHotkey` 또는 `run_codex_hotkeys.bat` 흐름을 같이 쓰는 것이 가장 편합니다.
+- 배포 패키지나 저장소 루트에서는 `run_voicepad.bat` 하나를 기본 진입점으로 쓰는 것을 권장합니다.
 
 ## 릴리즈 패키지 만들기
 
@@ -86,6 +86,7 @@ release\Voicepad-win64\
   README.md
   codex_dictation.settings.example.json
   launch_codex_dictation.ahk
+  run_voicepad.bat
   run_codex_dictation.bat
   run_codex_hotkeys.bat
   run_codex_terminal.bat
@@ -96,9 +97,14 @@ release\Voicepad-win64\
 
 배포 패키지 기준 권장 실행 순서:
 1. `Voicepad-win64.zip`을 원하는 폴더에 압축 해제
-2. `run_codex_hotkeys.bat` 실행
-3. 이후 `F1`로 앱 실행 또는 최소화
+2. `run_voicepad.bat` 실행
+3. 필요하면 이후 `F1`로 최소화 또는 다시 호출
 4. 설정 확인이 필요하면 `F2`
+
+고급 실행 흐름:
+- `run_codex_dictation.bat`: 앱 본체만 직접 실행
+- `run_codex_hotkeys.bat`: 전역 핫키만 먼저 켜기
+- `run_codex_terminal.bat`: 터미널만 빠르게 열기
 
 핫키 없이 앱만 먼저 확인하고 싶다면:
 1. `run_codex_dictation.bat`로 앱 본체만 직접 실행
@@ -117,10 +123,16 @@ release\Voicepad-win64\
 루트 런처로 실행:
 
 ```powershell
+.\run_voicepad.bat
+```
+
+앱 본체만 직접 실행:
+
+```powershell
 .\run_codex_dictation.bat
 ```
 
-`Voicepad.exe`가 `dist\` 아래에 있으면 같은 런처가 자동으로 `exe`를 우선 실행합니다.
+`run_voicepad.bat`는 전역 핫키 런처를 먼저 켠 뒤 앱 본체를 시작합니다. `Voicepad.exe`가 `dist\` 아래에 있으면 앱 실행 단계에서는 자동으로 `exe`를 우선 사용합니다.
 
 Codex 터미널만 빠르게 열기:
 
