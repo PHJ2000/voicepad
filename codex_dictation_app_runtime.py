@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import os
 import queue
+import subprocess
 import tempfile
 import threading
 import time
@@ -12,13 +14,25 @@ import soundfile as sf
 from tkinter import messagebox
 
 from codex_dictation_audio import trim_silence
-from codex_dictation_diagnostics import doctor
-from codex_dictation_settings import audio_preset_label, language_label, llm_profile_label, normalize_audio_preset_value, normalize_language_value, normalize_llm_profile_value, normalize_output_mode_value, resolve_llm_model, save_settings
+from codex_dictation_diagnostics import doctor, first_run_guidance
+from codex_dictation_settings import DATA_ROOT, LOG_PATH, SETTINGS_PATH, APP_NAME, audio_preset_label, language_label, llm_profile_label, normalize_audio_preset_value, normalize_language_value, normalize_llm_profile_value, normalize_output_mode_value, resolve_llm_model, save_settings
 from codex_dictation_targeting import APP_PID, fg_info, focus_best_terminal, focus_window, is_target_window, target_context_key
 from codex_dictation_utils import append_history, normalize_text
 
 
 class AppRuntimeMixin:
+    def refresh_quick_start(self):
+        summary, checklist, paths, trouble = first_run_guidance(
+            self.s,
+            input_device_count=len(getattr(self, "devices", [])),
+            model_status=self.model_status_brief,
+            hotkey_status=self.hotkey_status_brief,
+        )
+        self.quick_start_summary.set(summary)
+        self.quick_start_checklist.set(checklist)
+        self.quick_start_paths.set(paths)
+        self.quick_start_trouble.set(trouble)
+
     def refresh_tuning_status(self):
         suggestion = self.listen.tuning_snapshot()
         if suggestion.ready:
@@ -130,6 +144,7 @@ class AppRuntimeMixin:
         self.refresh_status()
         self.refresh_audio_status()
         self.refresh_tuning_status()
+        self.refresh_quick_start()
         self._sync_llm_status_idle()
         self.log("Settings saved")
 
@@ -184,6 +199,8 @@ class AppRuntimeMixin:
         try:
             import keyboard
         except Exception as exc:
+            self.hotkey_status_brief = f"단축키 사용 불가 ({exc})"
+            self.refresh_quick_start()
             self.log(f"Hotkeys unavailable: {exc}")
             return
         try:
@@ -196,8 +213,12 @@ class AppRuntimeMixin:
             keyboard.add_hotkey(self.s.paste_last_hotkey, self.paste_last, suppress=False, trigger_on_release=False)
             keyboard.add_hotkey(self.s.toggle_output_hotkey, self.cycle_output, suppress=False, trigger_on_release=False)
             keyboard.add_hotkey(self.s.toggle_enter_hotkey, self.toggle_enter, suppress=False, trigger_on_release=False)
+            self.hotkey_status_brief = "단축키 등록됨"
+            self.refresh_quick_start()
             self.log("Hotkeys registered")
         except Exception as exc:
+            self.hotkey_status_brief = f"단축키 등록 실패 ({exc})"
+            self.refresh_quick_start()
             self.log(f"Hotkey registration failed: {exc}")
 
     def beep(self, kind):
@@ -329,8 +350,10 @@ class AppRuntimeMixin:
                 path = Path(handle.name)
             sf.write(path, np.zeros(max(int(self.s.sample_rate * 0.35), 1), dtype=np.float32), self.s.sample_rate)
             self.backend.transcribe(path, self.s)
+            self.model_status_brief = f"모델 준비됨 ({self.s.whisper_model})"
             self.log(f"Model warmup finished in {time.perf_counter() - started:.2f}s")
         except Exception as exc:
+            self.model_status_brief = f"모델 준비 건너뜀 ({exc})"
             self.log(f"Model warmup skipped: {exc}")
         finally:
             if path is not None:
@@ -338,11 +361,45 @@ class AppRuntimeMixin:
                     path.unlink(missing_ok=True)
                 except Exception:
                     pass
+            self.refresh_quick_start()
             self.refresh_status()
 
     def show_doctor(self):
-        self.log_text.insert("end", "\n" + doctor(self.s) + "\n")
+        self.last_doctor_report = doctor(self.s)
+        self.log_text.insert("end", "\n" + self.last_doctor_report + "\n")
         self.log_text.see("end")
+
+    def copy_doctor_report(self):
+        self.last_doctor_report = doctor(self.s)
+        self.copy_clip(self.last_doctor_report)
+        self.log("Doctor report copied to clipboard")
+
+    def _open_path(self, path: Path, *, fallback_to_parent: bool = False, label: str = "path") -> bool:
+        target = path
+        if fallback_to_parent and not target.exists():
+            target = target.parent
+        try:
+            if os.name == "nt":
+                os.startfile(str(target))
+            elif target.is_dir():
+                subprocess.Popen(["xdg-open", str(target)])
+            else:
+                subprocess.Popen(["xdg-open", str(target.parent)])
+            self.log(f"Opened {label}: {target}")
+            return True
+        except Exception as exc:
+            self.log(f"Failed to open {label}: {exc}")
+            messagebox.showerror(APP_NAME, f"{label} 열기에 실패했습니다.\n{exc}")
+            return False
+
+    def open_settings_path(self):
+        return self._open_path(SETTINGS_PATH, fallback_to_parent=True, label="settings")
+
+    def open_log_path(self):
+        return self._open_path(LOG_PATH, fallback_to_parent=True, label="log")
+
+    def open_data_root(self):
+        return self._open_path(DATA_ROOT, fallback_to_parent=False, label="data root")
 
     def poll(self):
         try:
@@ -415,6 +472,7 @@ class AppRuntimeMixin:
     def poll_diagnostics(self):
         self.refresh_audio_status()
         self.refresh_tuning_status()
+        self.refresh_quick_start()
         self.root.after(120, self.poll_diagnostics)
 
     def poll_target(self):

@@ -47,6 +47,13 @@
   - `[feat] #5 always-listen 자동 감도 튜닝`
   - `[bug] #8 특정 앱에서 출력 모드 회귀 수정`
 
+## 릴리즈 문서 규칙
+
+- GitHub Releases 관련 절차는 [docs/release-process.md](./docs/release-process.md)를 기준 문서로 사용합니다.
+- 릴리즈 태그는 항상 `v{APP_VERSION}` 형식을 사용합니다.
+- 릴리즈 노트는 [docs/release-notes-template.md](./docs/release-notes-template.md)를 시작점으로 삼고, 사용자 관점 요약을 직접 보강합니다.
+- 배포 자산 이름과 포함 파일 기준은 문서 기준과 패키징 스크립트 출력을 함께 맞춥니다.
+
 ## 자기 PR 셀프 리뷰 기록 규칙
 
 - GitHub에서는 PR 작성자가 자기 PR에 `APPROVE` 또는 `REQUEST_CHANGES` 리뷰를 직접 남길 수 없습니다.

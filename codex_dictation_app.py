@@ -9,6 +9,7 @@ from codex_dictation_audio import AlwaysListen, Recorder, default_input_device_n
 from codex_dictation_app_actions import AppActionsMixin
 from codex_dictation_app_runtime import AppRuntimeMixin
 from codex_dictation_app_ui import AppUIMixin
+from codex_dictation_diagnostics import first_run_guidance
 from codex_dictation_output_state import OutputState
 from codex_dictation_postedit import AICorrectionPrefetchState, OllamaPostEditor
 from codex_dictation_settings import APP_TITLE, audio_preset_label, language_label, llm_profile_label, load_settings, save_settings
@@ -35,6 +36,13 @@ class App(AppRuntimeMixin, AppActionsMixin, AppUIMixin):
         self.audio_status = tk.StringVar(value="Audio | waiting for input")
         self.tuning_status = tk.StringVar(value="Always-listen Tuning | 표본 수집 중")
         self.llm_status = tk.StringVar(value="LLM | 대기")
+        self.quick_start_summary = tk.StringVar(value="빠른 점검 정보를 불러오는 중...")
+        self.quick_start_checklist = tk.StringVar(value="")
+        self.quick_start_paths = tk.StringVar(value="")
+        self.quick_start_trouble = tk.StringVar(value="")
+        self.model_status_brief = "모델 준비 중"
+        self.hotkey_status_brief = "단축키 등록 대기"
+        self.last_doctor_report = ""
         self.posteditor = OllamaPostEditor(self.log, self._set_llm_status)
         self.rec = Recorder(self.s, self.log)
         self.listen = AlwaysListen(self.s, self.log, self.enqueue_audio, self.target_active)
@@ -99,6 +107,16 @@ class App(AppRuntimeMixin, AppActionsMixin, AppUIMixin):
         self.history_items = []
         self.devices = [device["name"] for device in get_input_devices()]
         self._ui()
+        summary, checklist, paths, trouble = first_run_guidance(
+            self.s,
+            input_device_count=len(self.devices),
+            model_status=self.model_status_brief,
+            hotkey_status=self.hotkey_status_brief,
+        )
+        self.quick_start_summary.set(summary)
+        self.quick_start_checklist.set(checklist)
+        self.quick_start_paths.set(paths)
+        self.quick_start_trouble.set(trouble)
         self.history_query.trace_add("write", self.on_history_query_changed)
         self.refresh_history_browser(preserve_selection=False)
         self.refresh_audio_profile_choices()
