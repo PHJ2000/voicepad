@@ -121,16 +121,20 @@ class AlwaysListenRegressionTests(unittest.TestCase):
 
     def test_always_listen_keeps_segment_order_when_second_phrase_arrives_soon_after_first(self):
         self._feed(np.zeros(20, dtype=np.float32))
-        self._feed(np.full(35, 0.12, dtype=np.float32))
+        self._feed(np.concatenate([np.full(20, 0.12, dtype=np.float32), np.full(15, 0.08, dtype=np.float32)]))
         self._feed(np.zeros(66, dtype=np.float32))
 
         self._feed(np.zeros(10, dtype=np.float32))
-        self._feed(np.full(30, 0.14, dtype=np.float32))
+        self._feed(np.concatenate([np.full(10, 0.18, dtype=np.float32), np.full(20, 0.14, dtype=np.float32)]))
         self._feed(np.zeros(66, dtype=np.float32))
 
         self.assertEqual([source for source, _ in self.captured], ["always_listen", "always_listen"])
         self.assertEqual(len(self.captured), 2)
         self.assertGreater(len(self.captured[0][1]), len(self.captured[1][1]) - 30)
+        self.assertGreater(float(np.max(self.captured[0][1])), 0.11)
+        self.assertLess(float(np.max(self.captured[0][1])), 0.13)
+        self.assertGreater(float(np.max(self.captured[1][1])), 0.17)
+        self.assertLess(float(np.max(self.captured[1][1])), 0.19)
         self.assertTrue(any("Always-listen finalized after" in message for message in self.logs))
 
     def test_always_listen_preserves_weak_tail_samples_when_finalizing(self):
@@ -152,6 +156,25 @@ class AlwaysListenRegressionTests(unittest.TestCase):
         tail_window = captured_audio[-18:]
         np.testing.assert_allclose(tail_window[:10], np.full(10, 0.015, dtype=np.float32), atol=1e-6)
         np.testing.assert_allclose(tail_window[-4:], np.zeros(4, dtype=np.float32), atol=1e-6)
+        self.assertGreaterEqual(np.count_nonzero(np.isclose(tail_window, 0.015, atol=1e-6)), 10)
+
+    def test_always_listen_does_not_drop_third_segment_in_back_to_back_short_pauses(self):
+        self._feed(np.zeros(20, dtype=np.float32))
+        self._feed(np.full(32, 0.10, dtype=np.float32))
+        self._feed(np.zeros(66, dtype=np.float32))
+
+        self._feed(np.zeros(8, dtype=np.float32))
+        self._feed(np.full(28, 0.13, dtype=np.float32))
+        self._feed(np.zeros(66, dtype=np.float32))
+
+        self._feed(np.zeros(8, dtype=np.float32))
+        self._feed(np.full(26, 0.16, dtype=np.float32))
+        self._feed(np.zeros(66, dtype=np.float32))
+
+        self.assertEqual(len(self.captured), 3)
+        peaks = [float(np.max(audio)) for _, audio in self.captured]
+        self.assertEqual([round(peak, 2) for peak in peaks], [0.10, 0.13, 0.16])
+        self.assertEqual([source for source, _ in self.captured], ["always_listen"] * 3)
 
     def test_poll_preserves_capture_order_for_back_to_back_segments(self):
         runtime = _RuntimeHarness(["first result", "second result"])
@@ -181,6 +204,36 @@ class AlwaysListenRegressionTests(unittest.TestCase):
         self.assertEqual([text for text, _ in runtime.history], ["first result", "second result"])
         self.assertEqual([meta["source"] for _, meta in runtime.history], ["always_listen", "always_listen"])
         self.assertTrue(any("Queued always_listen audio for background transcription" in message for message in runtime.logs))
+
+    def test_poll_does_not_drop_any_segment_when_three_captures_arrive_back_to_back(self):
+        runtime = _RuntimeHarness(["first result", "second result", "third result"])
+        worker = threading.Thread(target=runtime._transcription_loop, daemon=True)
+        worker.start()
+
+        import codex_dictation_app_runtime as runtime_module
+        original_append_history = runtime_module.append_history
+        runtime_module.append_history = lambda text, meta: runtime.history.append((text, meta))
+        deadline = time.time() + 5.0
+        try:
+            runtime.res_q.put(
+                ("captured", {"audio": np.full(42, 0.12, dtype=np.float32), "source": "always_listen"})
+            )
+            runtime.res_q.put(
+                ("captured", {"audio": np.full(33, 0.11, dtype=np.float32), "source": "always_listen"})
+            )
+            runtime.res_q.put(
+                ("captured", {"audio": np.full(27, 0.10, dtype=np.float32), "source": "always_listen"})
+            )
+
+            while len(runtime.emitted) < 3 and time.time() < deadline:
+                runtime.poll()
+                time.sleep(0.05)
+        finally:
+            runtime_module.append_history = original_append_history
+
+        self.assertEqual(runtime.emitted, ["first result", "second result", "third result"])
+        self.assertEqual([text for text, _ in runtime.history], ["first result", "second result", "third result"])
+        self.assertEqual(runtime.backend.calls, 3)
 
 
 if __name__ == "__main__":

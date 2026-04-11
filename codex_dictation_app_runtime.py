@@ -16,7 +16,7 @@ import soundfile as sf
 from tkinter import messagebox
 
 from codex_dictation_audio import trim_silence
-from codex_dictation_diagnostics import doctor, first_run_guidance
+from codex_dictation_diagnostics import create_diagnostic_bundle, doctor, first_run_guidance
 from codex_dictation_settings import (
     APP_NAME,
     APP_VERSION,
@@ -41,10 +41,7 @@ from codex_dictation_settings import (
 from codex_dictation_targeting import APP_PID, fg_info, focus_best_terminal, focus_window, is_target_window, target_context_key
 from codex_dictation_utils import append_history, normalize_text
 
-
 RELEASES_URL = "https://github.com/PHJ2000/voicepad/releases"
-
-
 def hotkey_display_text(value: str) -> str:
     parts = [part for part in (value or "").split("+") if part]
     formatted: list[str] = []
@@ -70,6 +67,50 @@ def hotkey_display_text(value: str) -> str:
 def summarize_hotkey_group(prefix: str, items: tuple[dict[str, str], ...]) -> str:
     details = ", ".join(f"{item['label']} {hotkey_display_text(item['value'])}" for item in items)
     return f"{prefix} | {details}"
+
+
+def describe_model_prepare_state(
+    model_name: str,
+    phase: str,
+    *,
+    first_attempt: bool = False,
+    error: str = "",
+) -> tuple[str, str]:
+    name = model_name or "unknown"
+    if phase == "loading":
+        hint = (
+            "첫 준비라면 모델 다운로드 때문에 시간이 더 걸릴 수 있습니다."
+            if first_attempt
+            else "로컬에 준비된 모델을 메모리에 불러오는 중입니다."
+        )
+        return (
+            f"모델 다운로드/로드 중 ({name})",
+            f"Model prepare stage: loading {name}. {hint}",
+        )
+    if phase == "warming":
+        return (
+            f"모델 워밍업 중 ({name})",
+            f"Model prepare stage: warmup sample for {name}",
+        )
+    if phase == "ready":
+        return (
+            f"모델 준비됨 ({name})",
+            f"Model prepare stage: ready {name}",
+        )
+    if phase == "load_failed":
+        return (
+            f"모델 다운로드/로드 실패 ({error or name})",
+            f"Model prepare stage failed while loading {name}: {error or 'unknown error'}",
+        )
+    if phase == "warmup_failed":
+        return (
+            f"모델 워밍업 실패 ({error or name})",
+            f"Model prepare stage failed during warmup for {name}: {error or 'unknown error'}",
+        )
+    return (
+        f"모델 준비 중 ({name})",
+        f"Model prepare stage: pending {name}",
+    )
 
 
 def describe_hotkey_update(previous_values: dict[str, str], settings) -> str:
@@ -100,13 +141,32 @@ def describe_hotkey_update(previous_values: dict[str, str], settings) -> str:
             warning_parts.append(f"{hotkey_display_text(hotkey)} 중복({labels})")
         messages.append("충돌 주의: " + " | ".join(warning_parts))
     return " ".join(messages)
-
-
 def release_status_text() -> str:
     return f"현재 버전 v{APP_VERSION} | 새 버전 확인과 다운로드: GitHub Releases"
-
-
 class AppRuntimeMixin:
+    def set_model_prepare_state(
+        self,
+        phase: str,
+        *,
+        first_attempt: bool = False,
+        error: str = "",
+        log_message: bool = True,
+    ):
+        brief, detail = describe_model_prepare_state(
+            self.s.whisper_model,
+            phase,
+            first_attempt=first_attempt,
+            error=error,
+        )
+        self.model_status_brief = brief
+        self.refresh_quick_start()
+        try:
+            self.root.update_idletasks()
+        except Exception:
+            pass
+        if log_message:
+            self.log(detail)
+
     def summarize_all_hotkeys(self) -> str:
         return summarize_hotkey_group("현재 앱 단축키", app_hotkey_items(self.s))
 
@@ -445,19 +505,23 @@ class AppRuntimeMixin:
     def warmup_model(self):
         started = time.perf_counter()
         path = None
+        first_attempt = not bool(getattr(self.backend, "cache", {}))
         try:
-            self.root.update_idletasks()
-            self.log(f"Model warmup started for {self.s.whisper_model}")
+            self.set_model_prepare_state("loading", first_attempt=first_attempt)
             self.backend._model(self.s)
+            self.set_model_prepare_state("warming", log_message=False)
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as handle:
                 path = Path(handle.name)
             sf.write(path, np.zeros(max(int(self.s.sample_rate * 0.35), 1), dtype=np.float32), self.s.sample_rate)
             self.backend.transcribe(path, self.s)
-            self.model_status_brief = f"모델 준비됨 ({self.s.whisper_model})"
+            self.set_model_prepare_state("ready", log_message=False)
             self.log(f"Model warmup finished in {time.perf_counter() - started:.2f}s")
         except Exception as exc:
-            self.model_status_brief = f"모델 준비 건너뜀 ({exc})"
-            self.log(f"Model warmup skipped: {exc}")
+            if path is None:
+                self.set_model_prepare_state("load_failed", error=str(exc), log_message=False)
+            else:
+                self.set_model_prepare_state("warmup_failed", error=str(exc), log_message=False)
+            self.log(f"Model warmup failed: {exc}")
         finally:
             if path is not None:
                 try:
@@ -486,6 +550,16 @@ class AppRuntimeMixin:
             self.log(f"Failed to open releases page: {exc}")
             messagebox.showerror(APP_NAME, f"업데이트 페이지 열기에 실패했습니다.\n{exc}")
             return False
+
+    def export_diagnostic_bundle(self):
+        self.last_doctor_report = doctor(self.s)
+        bundle_path = create_diagnostic_bundle(self.s, doctor_report=self.last_doctor_report)
+        self.log(f"Diagnostic bundle exported: {bundle_path}")
+        try:
+            messagebox.showinfo(APP_NAME, f"진단 번들을 저장했습니다.\n{bundle_path}")
+        except Exception:
+            pass
+        return bundle_path
 
     def _open_path(self, path: Path, *, fallback_to_parent: bool = False, label: str = "path") -> bool:
         target = path

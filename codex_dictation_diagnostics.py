@@ -1,6 +1,12 @@
 from __future__ import annotations
 
+import json
+import os
 import sys
+import zipfile
+from dataclasses import asdict
+from datetime import datetime
+from pathlib import Path
 
 from codex_dictation_audio import get_input_devices
 from codex_dictation_settings import (
@@ -35,6 +41,9 @@ from codex_dictation_targeting import (
 )
 
 
+DIAGNOSTIC_BUNDLE_DIR = DATA_ROOT / "diagnostic-bundles"
+
+
 def first_run_guidance(
     settings: Settings,
     *,
@@ -66,8 +75,13 @@ def first_run_guidance(
     failure_hints: list[str] = []
     if input_device_count is not None and input_device_count <= 0:
         failure_hints.append("마이크가 안 보이면 장치 연결 후 Doctor의 Input devices를 확인")
+    if "다운로드/로드 중" in model_detail:
+        failure_hints.append("첫 실행이면 모델 다운로드가 길 수 있으니 로그가 계속 갱신되는지 확인")
+    if "워밍업 중" in model_detail:
+        failure_hints.append("모델 워밍업 중에는 첫 응답이 잠시 느릴 수 있습니다")
     if "실패" in model_detail or "건너뜀" in model_detail:
         failure_hints.append("모델 준비가 느리면 첫 다운로드 또는 warmup 로그를 확인")
+        failure_hints.append("모델 준비에 실패하면 로그와 네트워크 또는 저장공간 상태를 함께 확인")
     if "실패" in hotkey_detail or "불가" in hotkey_detail:
         failure_hints.append("단축키가 안 먹으면 keyboard 모듈과 실행 권한을 확인")
     if not failure_hints:
@@ -143,3 +157,128 @@ def doctor(settings: Settings | None = None) -> str:
     except Exception as exc:
         lines.append(f"torch: unavailable ({exc})")
     return "\n".join(lines)
+
+
+def mask_diagnostic_text(
+    text: str,
+    *,
+    data_root: Path = DATA_ROOT,
+    settings_path: Path = SETTINGS_PATH,
+    history_path: Path = HISTORY_PATH,
+    log_path: Path = LOG_PATH,
+) -> str:
+    masked = text or ""
+
+    def _path_variants(path: Path | str) -> set[str]:
+        raw = str(path)
+        variants = {
+            raw,
+            os.path.normpath(raw),
+            os.path.realpath(raw),
+        }
+        try:
+            variants.add(str(Path(path).resolve()))
+        except Exception:
+            pass
+        expanded: set[str] = set()
+        for item in variants:
+            expanded.add(item)
+            expanded.add(item.replace("\\", "/"))
+        return {item for item in expanded if item}
+
+    replacements: dict[str, str] = {}
+    for raw in _path_variants(Path.home()):
+        replacements[raw] = "<USER_HOME>"
+    for raw in _path_variants(data_root):
+        replacements[raw] = "<DATA_ROOT>"
+    for raw in _path_variants(settings_path):
+        replacements[raw] = "<DATA_ROOT>/codex_dictation.settings.json"
+    for raw in _path_variants(history_path):
+        replacements[raw] = "<DATA_ROOT>/codex_dictation.history.jsonl"
+    for raw in _path_variants(log_path):
+        replacements[raw] = "<DATA_ROOT>/codex_dictation.log"
+    env_home = os.environ.get("USERPROFILE", "").strip() or os.environ.get("HOME", "").strip()
+    if env_home:
+        replacements[env_home] = "<USER_HOME>"
+    for raw, token in sorted(replacements.items(), key=lambda item: len(item[0]), reverse=True):
+        if not raw:
+            continue
+        masked = masked.replace(raw, token)
+    return masked
+
+
+def diagnostic_bundle_readme(exported_at: str) -> str:
+    return "\n".join(
+        [
+            "Voicepad 진단 번들",
+            "--------------------",
+            f"생성 시각: {exported_at}",
+            "",
+            "포함 파일:",
+            "- doctor.txt: 현재 환경 점검 결과",
+            "- settings.json: 민감값을 일부 마스킹한 설정 스냅샷",
+            "- recent-log.txt: 최근 로그 일부",
+            "",
+            "마스킹 기준:",
+            "- 사용자 홈 경로는 <USER_HOME> 으로 치환",
+            "- Voicepad 데이터 루트와 대표 파일 경로는 <DATA_ROOT> 기준으로 치환",
+            "- Initial Prompt 값은 실제 문장 대신 <configured> 로 치환",
+        ]
+    )
+
+
+def diagnostic_settings_snapshot(settings: Settings, *, exported_at: str) -> str:
+    payload = asdict(settings)
+    if (payload.get("initial_prompt") or "").strip():
+        payload["initial_prompt"] = "<configured>"
+    return json.dumps(
+        {
+            "app_name": APP_NAME,
+            "app_version": APP_VERSION,
+            "exported_at": exported_at,
+            "masked": True,
+            "settings": payload,
+        },
+        ensure_ascii=False,
+        indent=2,
+    )
+
+
+def read_recent_log(log_path: Path = LOG_PATH, *, max_lines: int = 200) -> str:
+    try:
+        lines = log_path.read_text(encoding="utf-8").splitlines()
+    except FileNotFoundError:
+        return "로그 파일이 아직 없습니다."
+    except Exception as exc:
+        return f"로그를 읽지 못했습니다: {exc}"
+    if not lines:
+        return "로그 파일이 비어 있습니다."
+    return "\n".join(lines[-max_lines:])
+
+
+def create_diagnostic_bundle(
+    settings: Settings,
+    *,
+    doctor_report: str | None = None,
+    bundle_root: Path = DIAGNOSTIC_BUNDLE_DIR,
+    log_path: Path = LOG_PATH,
+    max_log_lines: int = 200,
+    now: datetime | None = None,
+) -> Path:
+    exported_at = (now or datetime.now()).strftime("%Y-%m-%d %H:%M:%S")
+    stamp = (now or datetime.now()).strftime("%Y%m%d-%H%M%S")
+    target_root = Path(bundle_root)
+    target_root.mkdir(parents=True, exist_ok=True)
+    bundle_path = target_root / f"voicepad-diagnostics-{stamp}.zip"
+
+    doctor_text = mask_diagnostic_text(doctor_report or doctor(settings))
+    settings_text = diagnostic_settings_snapshot(settings, exported_at=exported_at)
+    log_text = mask_diagnostic_text(read_recent_log(log_path, max_lines=max_log_lines))
+    readme_text = diagnostic_bundle_readme(exported_at)
+
+    with zipfile.ZipFile(bundle_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("README.txt", readme_text)
+        archive.writestr("doctor.txt", doctor_text)
+        archive.writestr("settings.json", settings_text)
+        archive.writestr("recent-log.txt", log_text)
+    return bundle_path
