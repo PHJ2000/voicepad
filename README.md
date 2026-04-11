@@ -66,6 +66,8 @@ dist\Voicepad.exe
 - 예전 `%LOCALAPPDATA%\CodexDictation\` 위치나 예전 소스 폴더 옆 런타임 파일이 남아 있으면 첫 실행 때 새 위치로 이어받습니다.
 - 예전 버전처럼 `exe` 또는 소스 폴더 옆에 `codex_dictation.settings.json`, `codex_dictation.history.jsonl`, `codex_dictation.log`가 남아 있으면 첫 실행 때 새 위치로 이어받습니다.
 - 첫 실행 시 `faster-whisper` 모델이 PC에 없다면 모델 다운로드는 여전히 한 번 필요합니다.
+- 전역 핫키는 기존처럼 `tools\AutoHotkey` 또는 `run_codex_hotkeys.bat` 흐름을 같이 쓰는 것이 가장 편합니다.
+- 빌드 중 `Hugging Face`, `PyInstaller` 캐시는 저장소 안 `outputs\build-env\` 아래로 고정해 재현성을 높였습니다.
 - 배포 패키지나 저장소 루트에서는 `run_voicepad.bat` 하나를 기본 진입점으로 쓰는 것을 권장합니다.
 
 ## 릴리즈 패키지 만들기
@@ -115,6 +117,36 @@ GitHub Releases 기준 태그 규칙, 릴리즈 노트 형식, 업로드 전 체
 - 배포 패키지는 `exe`, 배치 런처, `AutoHotkey` 엔진만 포함하므로 Python 설치가 없어도 실행할 수 있습니다.
 - 첫 실행 시 `faster-whisper` 모델 다운로드는 여전히 한 번 필요할 수 있습니다.
 - GitHub Releases에는 `Voicepad-win64.zip` 하나만 올려도 사용자가 필요한 파일을 한 번에 받을 수 있습니다.
+
+## 릴리즈 전 스모크 테스트
+
+릴리즈 직전에 기본 검증을 한 번에 반복하려면 아래 스크립트를 사용합니다.
+이 스크립트는 `unittest`, `--version`, `--doctor`, 패키징 검증을 차례대로 실행하고 결과를 `outputs\release-smoke\` 아래에 남깁니다.
+
+```powershell
+.\run_release_smoke.ps1
+```
+
+필요하면 worktree 밖 가상환경을 직접 지정할 수도 있습니다.
+
+```powershell
+.\run_release_smoke.ps1 -PythonPath ..\exp\.venv\Scripts\python.exe
+```
+
+완료되면 아래 로그를 확인하면 됩니다.
+
+```text
+outputs\release-smoke\summary.txt
+outputs\release-smoke\unittest.txt
+outputs\release-smoke\version.txt
+outputs\release-smoke\doctor.txt
+outputs\release-smoke\package.txt
+```
+
+메모:
+- 스모크 테스트 중 `LOCALAPPDATA`는 저장소 안 `outputs\release-smoke\localappdata\`로 고정해 실제 사용자 환경을 더럽히지 않습니다.
+- `--doctor`는 설정 파일을 자동 생성할 수 있으므로, 릴리즈 검증은 이 스크립트로 돌리는 편이 가장 안전합니다.
+- 현재 PyInstaller 로그에는 간헐적으로 파일 잠금 관련 재시도 경고가 한 줄 보일 수 있는데, 최종 `Build complete!`가 뜨면 패키징 성공으로 봐도 됩니다.
 
 ## 실행
 
