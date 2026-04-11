@@ -19,7 +19,7 @@ class AppUIMixin:
         ttk.Label(head, textvariable=self.target).grid(row=2, column=0, columnspan=2, sticky="w", pady=(6, 0))
         ttk.Label(
             head,
-            text="F7 항상 듣기, F8 수동 녹음, F9 마지막 문장, F10 출력 모드, F11 Enter 전환",
+            textvariable=self.app_hotkey_summary,
         ).grid(row=3, column=0, columnspan=2, sticky="w", pady=(6, 0))
         ttk.Label(
             head,
@@ -29,11 +29,13 @@ class AppUIMixin:
         qs.grid(row=1, column=0, sticky="ew", padx=12, pady=(0, 6))
         qs.columnconfigure(0, weight=1)
         ttk.Label(qs, textvariable=self.quick_start_summary, font=("Segoe UI", 10, "bold")).grid(row=0, column=0, sticky="w")
-        ttk.Label(qs, textvariable=self.quick_start_checklist, wraplength=920, justify="left").grid(row=1, column=0, sticky="w", pady=(6, 0))
-        ttk.Label(qs, textvariable=self.quick_start_paths, font=("Consolas", 9), wraplength=920, justify="left").grid(row=2, column=0, sticky="w", pady=(6, 0))
-        ttk.Label(qs, textvariable=self.quick_start_trouble, wraplength=920, justify="left").grid(row=3, column=0, sticky="w", pady=(6, 0))
+        ttk.Label(qs, textvariable=self.quick_start_hotkeys, wraplength=920, justify="left").grid(row=1, column=0, sticky="w", pady=(6, 0))
+        ttk.Label(qs, textvariable=self.quick_start_checklist, wraplength=920, justify="left").grid(row=2, column=0, sticky="w", pady=(6, 0))
+        ttk.Label(qs, textvariable=self.quick_start_paths, font=("Consolas", 9), wraplength=920, justify="left").grid(row=3, column=0, sticky="w", pady=(6, 0))
+        ttk.Label(qs, textvariable=self.quick_start_trouble, wraplength=920, justify="left").grid(row=4, column=0, sticky="w", pady=(6, 0))
+        ttk.Label(qs, textvariable=self.hotkey_feedback, wraplength=920, justify="left").grid(row=5, column=0, sticky="w", pady=(6, 0))
         quick_btn = ttk.Frame(qs)
-        quick_btn.grid(row=4, column=0, sticky="ew", pady=(10, 0))
+        quick_btn.grid(row=6, column=0, sticky="ew", pady=(10, 0))
         for index in range(5):
             quick_btn.columnconfigure(index, weight=1)
         ttk.Button(quick_btn, text="Doctor 보기", command=self.show_doctor).grid(row=0, column=0, sticky="ew")
@@ -96,13 +98,18 @@ class AppUIMixin:
         self._entry(right, "Paste Last Hotkey", "paste_last_hotkey", 6)
         self._entry(right, "Toggle Output Hotkey", "toggle_output_hotkey", 7)
         self._entry(right, "Toggle Enter Hotkey", "toggle_enter_hotkey", 8)
-        self._check(right, "Enable local LLM correction command", "llm_correction_enabled", 9)
-        self._combo(right, "LLM Profile", "llm_profile", ["균형", "정확도", "직접지정"], 10)
-        self._entry(right, "LLM Model", "llm_model", 11)
-        self._entry(right, "LLM Base URL", "llm_base_url", 12)
-        self._entry(right, "LLM Timeout Seconds", "llm_timeout_seconds", 13)
+        ttk.Label(right, text="Launcher Hotkeys", font=("Segoe UI", 9, "bold")).grid(row=9, column=0, columnspan=2, sticky="w", pady=(10, 0))
+        self._entry(right, "Launcher Toggle Hotkey", "launcher_toggle_hotkey", 10)
+        self._entry(right, "Launcher Show Hotkey", "launcher_show_hotkey", 11)
+        self._entry(right, "Launcher Hide Hotkey", "launcher_hide_hotkey", 12)
+        self._entry(right, "Launcher Exit Hotkey", "launcher_exit_hotkey", 13)
+        self._check(right, "Enable local LLM correction command", "llm_correction_enabled", 14)
+        self._combo(right, "LLM Profile", "llm_profile", ["균형", "정확도", "직접지정"], 15)
+        self._entry(right, "LLM Model", "llm_model", 16)
+        self._entry(right, "LLM Base URL", "llm_base_url", 17)
+        self._entry(right, "LLM Timeout Seconds", "llm_timeout_seconds", 18)
         btn = ttk.Frame(right)
-        btn.grid(row=13, column=0, columnspan=2, sticky="ew", pady=(14, 0))
+        btn.grid(row=19, column=0, columnspan=2, sticky="ew", pady=(14, 0))
         [btn.columnconfigure(i, weight=1) for i in range(3)]
         for row, col, text, cmd in [
             (0, 0, "Start / Stop Manual", self.toggle_recording),

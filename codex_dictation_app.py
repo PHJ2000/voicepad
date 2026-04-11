@@ -37,9 +37,11 @@ class App(AppRuntimeMixin, AppActionsMixin, AppUIMixin):
         self.tuning_status = tk.StringVar(value="Always-listen Tuning | 표본 수집 중")
         self.llm_status = tk.StringVar(value="LLM | 대기")
         self.quick_start_summary = tk.StringVar(value="빠른 점검 정보를 불러오는 중...")
+        self.quick_start_hotkeys = tk.StringVar(value="핵심 단축키를 불러오는 중...")
         self.quick_start_checklist = tk.StringVar(value="")
         self.quick_start_paths = tk.StringVar(value="")
         self.quick_start_trouble = tk.StringVar(value="")
+        self.hotkey_feedback = tk.StringVar(value="핫키를 바꾼 뒤에는 이곳에서 현재 적용값과 충돌 경고를 먼저 확인하세요.")
         self.model_status_brief = "모델 준비 중"
         self.hotkey_status_brief = "단축키 등록 대기"
         self.last_doctor_report = ""
@@ -76,6 +78,10 @@ class App(AppRuntimeMixin, AppActionsMixin, AppUIMixin):
             "paste_last_hotkey",
             "toggle_output_hotkey",
             "toggle_enter_hotkey",
+            "launcher_toggle_hotkey",
+            "launcher_show_hotkey",
+            "launcher_hide_hotkey",
+            "launcher_exit_hotkey",
             "output_mode",
             "paste_hotkey",
             "max_record_seconds",
@@ -102,6 +108,7 @@ class App(AppRuntimeMixin, AppActionsMixin, AppUIMixin):
         ]}
         self.status = tk.StringVar(value="Idle")
         self.target = tk.StringVar(value="")
+        self.app_hotkey_summary = tk.StringVar(value="")
         self.history_query = tk.StringVar(value="")
         self.history_empty = tk.StringVar(value="기록을 불러오는 중...")
         self.history_items = []
@@ -117,6 +124,7 @@ class App(AppRuntimeMixin, AppActionsMixin, AppUIMixin):
         self.quick_start_checklist.set(checklist)
         self.quick_start_paths.set(paths)
         self.quick_start_trouble.set(trouble)
+        self.refresh_hotkey_overview()
         self.history_query.trace_add("write", self.on_history_query_changed)
         self.refresh_history_browser(preserve_selection=False)
         self.refresh_audio_profile_choices()
