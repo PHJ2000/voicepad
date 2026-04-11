@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import queue
+import re
 import subprocess
 import tempfile
 import threading
@@ -15,12 +16,97 @@ from tkinter import messagebox
 
 from codex_dictation_audio import trim_silence
 from codex_dictation_diagnostics import doctor, first_run_guidance
-from codex_dictation_settings import DATA_ROOT, LOG_PATH, SETTINGS_PATH, APP_NAME, audio_preset_label, language_label, llm_profile_label, normalize_audio_preset_value, normalize_language_value, normalize_llm_profile_value, normalize_output_mode_value, resolve_llm_model, save_settings
+from codex_dictation_settings import (
+    APP_NAME,
+    DATA_ROOT,
+    LOG_PATH,
+    SETTINGS_PATH,
+    app_hotkey_items,
+    audio_preset_label,
+    hotkey_conflicts,
+    hotkey_items,
+    language_label,
+    launcher_hotkey_items,
+    llm_profile_label,
+    normalize_audio_preset_value,
+    normalize_hotkey_value,
+    normalize_language_value,
+    normalize_llm_profile_value,
+    normalize_output_mode_value,
+    resolve_llm_model,
+    save_settings,
+)
 from codex_dictation_targeting import APP_PID, fg_info, focus_best_terminal, focus_window, is_target_window, target_context_key
 from codex_dictation_utils import append_history, normalize_text
 
 
+def hotkey_display_text(value: str) -> str:
+    parts = [part for part in (value or "").split("+") if part]
+    formatted: list[str] = []
+    for part in parts:
+        lowered = part.lower()
+        if lowered == "ctrl":
+            formatted.append("Ctrl")
+        elif lowered == "alt":
+            formatted.append("Alt")
+        elif lowered == "shift":
+            formatted.append("Shift")
+        elif lowered == "win":
+            formatted.append("Win")
+        elif re.fullmatch(r"f\d{1,2}", lowered):
+            formatted.append(lowered.upper())
+        elif len(lowered) == 1:
+            formatted.append(lowered.upper())
+        else:
+            formatted.append(lowered.capitalize())
+    return "+".join(formatted) if formatted else "미설정"
+
+
+def summarize_hotkey_group(prefix: str, items: tuple[dict[str, str], ...]) -> str:
+    details = ", ".join(f"{item['label']} {hotkey_display_text(item['value'])}" for item in items)
+    return f"{prefix} | {details}"
+
+
+def describe_hotkey_update(previous_values: dict[str, str], settings) -> str:
+    current_items = hotkey_items(settings)
+    changed = [
+        item
+        for item in current_items
+        if normalize_hotkey_value(previous_values.get(item["field"], ""), fallback=item["default"]) != item["value"]
+    ]
+    launcher_fields = {item["field"] for item in launcher_hotkey_items(settings)}
+    conflicts = hotkey_conflicts(settings)
+
+    messages: list[str] = []
+    if changed:
+        changed_text = ", ".join(f"{item['label']} {hotkey_display_text(item['value'])}" for item in changed)
+        if any(item["field"] in launcher_fields for item in changed):
+            messages.append(f"핫키 저장됨: {changed_text}. 런처가 실행 중이면 잠시 뒤 새 설정을 다시 읽습니다.")
+        else:
+            messages.append(f"핫키 저장됨: {changed_text}.")
+    else:
+        messages.append("핫키 설정을 저장했습니다. 현재 적용값은 아래 요약에서 바로 확인할 수 있습니다.")
+
+    if conflicts:
+        item_map = {item["field"]: item["label"] for item in current_items}
+        warning_parts = []
+        for hotkey, fields in conflicts.items():
+            labels = ", ".join(item_map.get(field, field) for field in fields)
+            warning_parts.append(f"{hotkey_display_text(hotkey)} 중복({labels})")
+        messages.append("충돌 주의: " + " | ".join(warning_parts))
+    return " ".join(messages)
+
+
 class AppRuntimeMixin:
+    def summarize_all_hotkeys(self) -> str:
+        return summarize_hotkey_group("현재 앱 단축키", app_hotkey_items(self.s))
+
+    def refresh_hotkey_overview(self, feedback: str | None = None):
+        self.quick_start_hotkeys.set(summarize_hotkey_group("현재 런처 단축키", launcher_hotkey_items(self.s)))
+        self.app_hotkey_summary.set(self.summarize_all_hotkeys())
+        if feedback is not None:
+            self.hotkey_feedback.set(feedback)
+
     def refresh_quick_start(self):
         summary, checklist, paths, trouble = first_run_guidance(
             self.s,
@@ -32,6 +118,7 @@ class AppRuntimeMixin:
         self.quick_start_checklist.set(checklist)
         self.quick_start_paths.set(paths)
         self.quick_start_trouble.set(trouble)
+        self.refresh_hotkey_overview()
 
     def refresh_tuning_status(self):
         suggestion = self.listen.tuning_snapshot()
@@ -109,6 +196,7 @@ class AppRuntimeMixin:
             self.log(f"Startup target focus skipped: {exc}")
 
     def save_from_ui(self):
+        previous_hotkeys = {item["field"]: item["value"] for item in hotkey_items(self.s)}
         for key, var in self.vars.items():
             current = getattr(self.s, key)
             raw = var.get().strip()
@@ -124,6 +212,9 @@ class AppRuntimeMixin:
             elif key == "output_mode":
                 setattr(self.s, key, normalize_output_mode_value(raw))
                 self.vars["output_mode"].set(self.s.output_mode)
+            elif key.endswith("_hotkey"):
+                setattr(self.s, key, normalize_hotkey_value(raw, fallback=str(current)))
+                self.vars[key].set(getattr(self.s, key))
             elif isinstance(current, int):
                 setattr(self.s, key, int(raw or "0"))
             elif isinstance(current, float):
@@ -146,6 +237,9 @@ class AppRuntimeMixin:
         self.refresh_tuning_status()
         self.refresh_quick_start()
         self._sync_llm_status_idle()
+        feedback = describe_hotkey_update(previous_hotkeys, self.s)
+        self.refresh_hotkey_overview(feedback=feedback)
+        self.log(feedback)
         self.log("Settings saved")
 
     def apply_always_listen_tuning(self):

@@ -1,27 +1,34 @@
 from __future__ import annotations
 
+import json
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 if str(PROJECT_DIR) not in sys.path:
     sys.path.insert(0, str(PROJECT_DIR))
 
+import codex_dictation_settings as settings_module  # noqa: E402
 from codex_dictation_settings import (  # noqa: E402
     DEFAULT_AUDIO_PRESET,
+    DEFAULT_LAUNCHER_HOTKEYS,
     DEFAULT_LLM_MODEL,
     ROOT,
     Settings,
     apply_audio_profile,
     audio_preset_label,
     display_path,
+    hotkey_conflicts,
     language_label,
     language_model_arg,
+    launcher_hotkey_items,
     normalize_audio_profile_name,
     normalize_audio_profiles,
+    normalize_hotkey_value,
     llm_profile_label,
     normalize_audio_preset_value,
     normalize_language_value,
@@ -77,6 +84,27 @@ class SettingsNormalizationTests(unittest.TestCase):
         self.assertEqual(normalize_output_mode_value("clipboard"), "clipboard")
         self.assertEqual(normalize_output_mode_value("직접 입력"), "type")
         self.assertEqual(normalize_output_mode_value("???"), "auto")
+
+    def test_launcher_hotkeys_normalize_aliases_and_fallbacks(self):
+        self.assertEqual(normalize_hotkey_value(" Ctrl + Alt + Space "), "ctrl+alt+space")
+        self.assertEqual(normalize_hotkey_value("^!Space"), "ctrl+alt+space")
+        self.assertEqual(normalize_hotkey_value("  ", fallback="F2"), "f2")
+
+    def test_launcher_hotkey_items_and_conflicts(self):
+        settings = Settings(
+            launcher_toggle_hotkey="f2",
+            launcher_show_hotkey=" F2 ",
+            launcher_hide_hotkey="",
+            launcher_exit_hotkey="Win + Z",
+        )
+        items = launcher_hotkey_items(settings)
+        self.assertEqual(items[0]["value"], "f2")
+        self.assertEqual(items[2]["value"], DEFAULT_LAUNCHER_HOTKEYS["launcher_hide_hotkey"])
+        self.assertEqual(items[3]["value"], "win+z")
+        self.assertEqual(
+            hotkey_conflicts(settings),
+            {"f2": ("launcher_toggle_hotkey", "launcher_show_hotkey")},
+        )
 
     def test_audio_profile_name_and_profile_normalization(self):
         self.assertEqual(normalize_audio_profile_name("  회의 용  "), "회의 용")
@@ -140,6 +168,25 @@ class SettingsNormalizationTests(unittest.TestCase):
         self.assertIn("마이크가 안 보이면", trouble)
         self.assertIn("모델 준비가 느리면", trouble)
         self.assertIn("단축키가 안 먹으면", trouble)
+
+    def test_save_settings_normalizes_launcher_hotkeys_before_write(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            settings_path = Path(temp_dir) / "codex_dictation.settings.json"
+            settings = Settings(
+                launcher_toggle_hotkey=" ",
+                launcher_show_hotkey="Control + Alt + Space",
+                launcher_hide_hotkey="Meta + H",
+                launcher_exit_hotkey="return",
+            )
+            with patch.object(settings_module, "ensure_runtime_paths", lambda: None):
+                with patch.object(settings_module, "SETTINGS_PATH", settings_path):
+                    settings_module.save_settings(settings)
+
+            stored = json.loads(settings_path.read_text(encoding="utf-8"))
+        self.assertEqual(stored["launcher_toggle_hotkey"], "f1")
+        self.assertEqual(stored["launcher_show_hotkey"], "ctrl+alt+space")
+        self.assertEqual(stored["launcher_hide_hotkey"], "win+h")
+        self.assertEqual(stored["launcher_exit_hotkey"], "enter")
 
 
 class UtilsTests(unittest.TestCase):
