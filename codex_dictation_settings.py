@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import sys
 from dataclasses import asdict, dataclass, field
@@ -63,6 +64,72 @@ LEGACY_HISTORY_PATH = LEGACY_ROOT / HISTORY_FILENAME
 LEGACY_LOG_PATH = LEGACY_ROOT / LOG_FILENAME
 AI_PREFETCH_CACHE_SIZE = 3
 DEFAULT_LLM_MODEL = "gemma3:4b"
+APP_HOTKEY_FIELDS = (
+    "always_listen_hotkey",
+    "record_hotkey",
+    "paste_last_hotkey",
+    "toggle_output_hotkey",
+    "toggle_enter_hotkey",
+)
+DEFAULT_APP_HOTKEYS = {
+    "always_listen_hotkey": "f7",
+    "record_hotkey": "f8",
+    "paste_last_hotkey": "f9",
+    "toggle_output_hotkey": "f10",
+    "toggle_enter_hotkey": "f11",
+}
+APP_HOTKEY_LABELS = {
+    "always_listen_hotkey": "항상 듣기",
+    "record_hotkey": "수동 녹음",
+    "paste_last_hotkey": "마지막 문장",
+    "toggle_output_hotkey": "출력 모드 전환",
+    "toggle_enter_hotkey": "Enter 전환",
+}
+LAUNCHER_HOTKEY_FIELDS = (
+    "launcher_toggle_hotkey",
+    "launcher_show_hotkey",
+    "launcher_hide_hotkey",
+    "launcher_exit_hotkey",
+)
+DEFAULT_LAUNCHER_HOTKEYS = {
+    "launcher_toggle_hotkey": "f1",
+    "launcher_show_hotkey": "f2",
+    "launcher_hide_hotkey": "f3",
+    "launcher_exit_hotkey": "f4",
+}
+LAUNCHER_HOTKEY_LABELS = {
+    "launcher_toggle_hotkey": "런처 토글",
+    "launcher_show_hotkey": "런처 표시",
+    "launcher_hide_hotkey": "런처 숨기기",
+    "launcher_exit_hotkey": "런처 종료",
+}
+HOTKEY_MODIFIER_ORDER = ("ctrl", "alt", "shift", "win")
+HOTKEY_MODIFIER_ALIASES = {
+    "ctrl": "ctrl",
+    "control": "ctrl",
+    "^": "ctrl",
+    "alt": "alt",
+    "!": "alt",
+    "option": "alt",
+    "shift": "shift",
+    "+": "shift",
+    "win": "win",
+    "windows": "win",
+    "meta": "win",
+    "command": "win",
+    "cmd": "win",
+    "#": "win",
+}
+HOTKEY_KEY_ALIASES = {
+    "esc": "escape",
+    "return": "enter",
+    "del": "delete",
+    "ins": "insert",
+    "pgup": "pageup",
+    "pgdn": "pagedown",
+    "spacebar": "space",
+}
+ALL_CONFIGURABLE_HOTKEY_FIELDS = APP_HOTKEY_FIELDS + LAUNCHER_HOTKEY_FIELDS
 
 
 def display_path(path: Path | str, *, base: Path | None = None) -> str:
@@ -136,11 +203,15 @@ class Settings:
     whisper_compute_type: str = "auto"
     language: str = "auto"
     initial_prompt: str = ""
-    record_hotkey: str = "f8"
-    always_listen_hotkey: str = "f7"
-    paste_last_hotkey: str = "f9"
-    toggle_output_hotkey: str = "f10"
-    toggle_enter_hotkey: str = "f11"
+    record_hotkey: str = DEFAULT_APP_HOTKEYS["record_hotkey"]
+    always_listen_hotkey: str = DEFAULT_APP_HOTKEYS["always_listen_hotkey"]
+    paste_last_hotkey: str = DEFAULT_APP_HOTKEYS["paste_last_hotkey"]
+    toggle_output_hotkey: str = DEFAULT_APP_HOTKEYS["toggle_output_hotkey"]
+    toggle_enter_hotkey: str = DEFAULT_APP_HOTKEYS["toggle_enter_hotkey"]
+    launcher_toggle_hotkey: str = DEFAULT_LAUNCHER_HOTKEYS["launcher_toggle_hotkey"]
+    launcher_show_hotkey: str = DEFAULT_LAUNCHER_HOTKEYS["launcher_show_hotkey"]
+    launcher_hide_hotkey: str = DEFAULT_LAUNCHER_HOTKEYS["launcher_hide_hotkey"]
+    launcher_exit_hotkey: str = DEFAULT_LAUNCHER_HOTKEYS["launcher_exit_hotkey"]
     output_mode: str = "type"
     paste_hotkey: str = "ctrl+v"
     auto_enter: bool = False
@@ -263,6 +334,130 @@ def normalize_output_mode_value(value: str | None) -> str:
     return aliases.get(raw, "auto")
 
 
+def _normalize_hotkey_token(token: str) -> str:
+    stripped = token.strip().lower()
+    compact = stripped.replace(" ", "")
+    if compact in HOTKEY_MODIFIER_ALIASES:
+        return HOTKEY_MODIFIER_ALIASES[compact]
+    if compact in HOTKEY_KEY_ALIASES:
+        return HOTKEY_KEY_ALIASES[compact]
+    return HOTKEY_KEY_ALIASES.get(stripped, compact)
+
+
+def _normalize_hotkey_value_core(value: str | None) -> str:
+    raw = (value or "").strip().lower()
+    if not raw:
+        return ""
+
+    tokens: list[str] = []
+    if re.match(r"^[\^!#+]+[^+]+$", raw):
+        prefix_tokens: list[str] = []
+        key_start = 0
+        for index, char in enumerate(raw):
+            if char in HOTKEY_MODIFIER_ALIASES:
+                prefix_tokens.append(HOTKEY_MODIFIER_ALIASES[char])
+                key_start = index + 1
+                continue
+            break
+        key_token = raw[key_start:].strip()
+        tokens = prefix_tokens + ([key_token] if key_token else [])
+    else:
+        normalized_separators = re.sub(r"\s*\+\s*", "+", raw)
+        tokens = [token for token in normalized_separators.split("+") if token.strip()]
+
+    if not tokens:
+        return ""
+
+    modifiers: list[str] = []
+    primary = ""
+    for token in tokens:
+        normalized = _normalize_hotkey_token(token)
+        if not normalized:
+            continue
+        if normalized in HOTKEY_MODIFIER_ORDER:
+            if normalized not in modifiers:
+                modifiers.append(normalized)
+            continue
+        if primary:
+            return ""
+        primary = normalized
+
+    if not primary:
+        return ""
+
+    ordered_modifiers = [modifier for modifier in HOTKEY_MODIFIER_ORDER if modifier in modifiers]
+    return "+".join([*ordered_modifiers, primary])
+
+
+def normalize_hotkey_value(value: str | None, *, fallback: str = "") -> str:
+    normalized = _normalize_hotkey_value_core(value)
+    if normalized:
+        return normalized
+    if fallback:
+        return _normalize_hotkey_value_core(fallback)
+    return ""
+
+
+def app_hotkey_items(settings: Settings) -> tuple[dict[str, str], ...]:
+    return tuple(
+        {
+            "field": field,
+            "label": APP_HOTKEY_LABELS[field],
+            "value": normalize_hotkey_value(getattr(settings, field, ""), fallback=DEFAULT_APP_HOTKEYS[field]),
+            "default": DEFAULT_APP_HOTKEYS[field],
+        }
+        for field in APP_HOTKEY_FIELDS
+    )
+
+
+def launcher_hotkey_items(settings: Settings) -> tuple[dict[str, str], ...]:
+    return tuple(
+        {
+            "field": field,
+            "label": LAUNCHER_HOTKEY_LABELS[field],
+            "value": normalize_hotkey_value(getattr(settings, field, ""), fallback=DEFAULT_LAUNCHER_HOTKEYS[field]),
+            "default": DEFAULT_LAUNCHER_HOTKEYS[field],
+        }
+        for field in LAUNCHER_HOTKEY_FIELDS
+    )
+
+
+def hotkey_items(settings: Settings) -> tuple[dict[str, str], ...]:
+    return app_hotkey_items(settings) + launcher_hotkey_items(settings)
+
+
+def hotkey_conflicts(settings: Settings) -> dict[str, tuple[str, ...]]:
+    conflicts: dict[str, list[str]] = {}
+    for item in hotkey_items(settings):
+        conflicts.setdefault(item["value"], []).append(item["field"])
+    return {
+        hotkey: tuple(fields)
+        for hotkey, fields in conflicts.items()
+        if hotkey and len(fields) > 1
+    }
+
+
+def _normalize_configured_hotkeys(settings: Settings) -> None:
+    for field in APP_HOTKEY_FIELDS:
+        setattr(
+            settings,
+            field,
+            normalize_hotkey_value(
+                getattr(settings, field, ""),
+                fallback=DEFAULT_APP_HOTKEYS[field],
+            ),
+        )
+    for field in LAUNCHER_HOTKEY_FIELDS:
+        setattr(
+            settings,
+            field,
+            normalize_hotkey_value(
+                getattr(settings, field, ""),
+                fallback=DEFAULT_LAUNCHER_HOTKEYS[field],
+            ),
+        )
+
+
 def normalize_audio_profile_name(value: str | None) -> str:
     return " ".join((value or "").strip().split())[:40]
 
@@ -331,6 +526,7 @@ def load_settings() -> Settings:
     settings.language = normalize_language_value(settings.language)
     settings.llm_profile = normalize_llm_profile_value(settings.llm_profile)
     settings.output_mode = normalize_output_mode_value(settings.output_mode)
+    _normalize_configured_hotkeys(settings)
     settings.selected_audio_profile = normalize_audio_profile_name(settings.selected_audio_profile)
     settings.audio_profiles = normalize_audio_profiles(settings.audio_profiles)
     return settings
@@ -338,4 +534,5 @@ def load_settings() -> Settings:
 
 def save_settings(settings: Settings) -> None:
     ensure_runtime_paths()
+    _normalize_configured_hotkeys(settings)
     SETTINGS_PATH.write_text(json.dumps(asdict(settings), indent=2), encoding="utf-8")

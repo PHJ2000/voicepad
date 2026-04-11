@@ -62,6 +62,25 @@ function Find-PythonInGitCommonDirVenv {
     return $null
 }
 
+function Set-VoicepadBuildEnvironment {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$RepoRoot
+    )
+
+    $buildEnvRoot = Join-Path $RepoRoot "outputs\build-env"
+    $hfHome = Join-Path $buildEnvRoot "huggingface"
+    $pyinstallerConfigDir = Join-Path $buildEnvRoot "pyinstaller"
+
+    New-Item -ItemType Directory -Path $hfHome -Force | Out-Null
+    New-Item -ItemType Directory -Path $pyinstallerConfigDir -Force | Out-Null
+
+    $env:HF_HOME = $hfHome
+    $env:HF_HUB_DISABLE_XET = "1"
+    $env:HF_HUB_DISABLE_TELEMETRY = "1"
+    $env:PYINSTALLER_CONFIG_DIR = $pyinstallerConfigDir
+}
+
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $python = $PythonPath
 
@@ -82,6 +101,14 @@ $buildRequirements = Join-Path $scriptDir "requirements-dictation-build.txt"
 $entryScript = Join-Path $scriptDir "codex_dictation.py"
 $distDir = Join-Path $scriptDir "dist"
 $workDir = Join-Path $scriptDir "build"
+$customHooksDir = Join-Path $scriptDir "pyinstaller-hooks"
+$exePath = Join-Path $distDir "Voicepad.exe"
+
+Set-VoicepadBuildEnvironment -RepoRoot $scriptDir
+
+if (Test-Path $exePath) {
+    Remove-Item -LiteralPath $exePath -Force -ErrorAction SilentlyContinue
+}
 
 & $python -m pip install -r $buildRequirements
 if ($LASTEXITCODE -ne 0) {
@@ -97,6 +124,7 @@ if ($LASTEXITCODE -ne 0) {
     --distpath $distDir `
     --workpath $workDir `
     --specpath $workDir `
+    --additional-hooks-dir $customHooksDir `
     --collect-data faster_whisper `
     --hidden-import sounddevice `
     --hidden-import soundfile `
@@ -125,7 +153,6 @@ if ($LASTEXITCODE -ne 0) {
     throw "PyInstaller 빌드에 실패했습니다."
 }
 
-$exePath = Join-Path $distDir "Voicepad.exe"
 if (-not (Test-Path $exePath)) {
     throw "빌드는 끝났지만 실행 파일이 생성되지 않았습니다: $exePath"
 }

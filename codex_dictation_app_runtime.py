@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import os
 import queue
+import re
+import subprocess
 import tempfile
 import threading
 import time
@@ -12,13 +15,175 @@ import soundfile as sf
 from tkinter import messagebox
 
 from codex_dictation_audio import trim_silence
-from codex_dictation_diagnostics import doctor
-from codex_dictation_settings import audio_preset_label, language_label, llm_profile_label, normalize_audio_preset_value, normalize_language_value, normalize_llm_profile_value, normalize_output_mode_value, resolve_llm_model, save_settings
+from codex_dictation_diagnostics import create_diagnostic_bundle, doctor, first_run_guidance
+from codex_dictation_settings import (
+    APP_NAME,
+    DATA_ROOT,
+    LOG_PATH,
+    SETTINGS_PATH,
+    app_hotkey_items,
+    audio_preset_label,
+    hotkey_conflicts,
+    hotkey_items,
+    language_label,
+    launcher_hotkey_items,
+    llm_profile_label,
+    normalize_audio_preset_value,
+    normalize_hotkey_value,
+    normalize_language_value,
+    normalize_llm_profile_value,
+    normalize_output_mode_value,
+    resolve_llm_model,
+    save_settings,
+)
 from codex_dictation_targeting import APP_PID, fg_info, focus_best_terminal, focus_window, is_target_window, target_context_key
 from codex_dictation_utils import append_history, normalize_text
 
+def hotkey_display_text(value: str) -> str:
+    parts = [part for part in (value or "").split("+") if part]
+    formatted: list[str] = []
+    for part in parts:
+        lowered = part.lower()
+        if lowered == "ctrl":
+            formatted.append("Ctrl")
+        elif lowered == "alt":
+            formatted.append("Alt")
+        elif lowered == "shift":
+            formatted.append("Shift")
+        elif lowered == "win":
+            formatted.append("Win")
+        elif re.fullmatch(r"f\d{1,2}", lowered):
+            formatted.append(lowered.upper())
+        elif len(lowered) == 1:
+            formatted.append(lowered.upper())
+        else:
+            formatted.append(lowered.capitalize())
+    return "+".join(formatted) if formatted else "미설정"
 
+
+def summarize_hotkey_group(prefix: str, items: tuple[dict[str, str], ...]) -> str:
+    details = ", ".join(f"{item['label']} {hotkey_display_text(item['value'])}" for item in items)
+    return f"{prefix} | {details}"
+
+
+def describe_model_prepare_state(
+    model_name: str,
+    phase: str,
+    *,
+    first_attempt: bool = False,
+    error: str = "",
+) -> tuple[str, str]:
+    name = model_name or "unknown"
+    if phase == "loading":
+        hint = (
+            "첫 준비라면 모델 다운로드 때문에 시간이 더 걸릴 수 있습니다."
+            if first_attempt
+            else "로컬에 준비된 모델을 메모리에 불러오는 중입니다."
+        )
+        return (
+            f"모델 다운로드/로드 중 ({name})",
+            f"Model prepare stage: loading {name}. {hint}",
+        )
+    if phase == "warming":
+        return (
+            f"모델 워밍업 중 ({name})",
+            f"Model prepare stage: warmup sample for {name}",
+        )
+    if phase == "ready":
+        return (
+            f"모델 준비됨 ({name})",
+            f"Model prepare stage: ready {name}",
+        )
+    if phase == "load_failed":
+        return (
+            f"모델 다운로드/로드 실패 ({error or name})",
+            f"Model prepare stage failed while loading {name}: {error or 'unknown error'}",
+        )
+    if phase == "warmup_failed":
+        return (
+            f"모델 워밍업 실패 ({error or name})",
+            f"Model prepare stage failed during warmup for {name}: {error or 'unknown error'}",
+        )
+    return (
+        f"모델 준비 중 ({name})",
+        f"Model prepare stage: pending {name}",
+    )
+
+
+def describe_hotkey_update(previous_values: dict[str, str], settings) -> str:
+    current_items = hotkey_items(settings)
+    changed = [
+        item
+        for item in current_items
+        if normalize_hotkey_value(previous_values.get(item["field"], ""), fallback=item["default"]) != item["value"]
+    ]
+    launcher_fields = {item["field"] for item in launcher_hotkey_items(settings)}
+    conflicts = hotkey_conflicts(settings)
+
+    messages: list[str] = []
+    if changed:
+        changed_text = ", ".join(f"{item['label']} {hotkey_display_text(item['value'])}" for item in changed)
+        if any(item["field"] in launcher_fields for item in changed):
+            messages.append(f"핫키 저장됨: {changed_text}. 런처가 실행 중이면 잠시 뒤 새 설정을 다시 읽습니다.")
+        else:
+            messages.append(f"핫키 저장됨: {changed_text}.")
+    else:
+        messages.append("핫키 설정을 저장했습니다. 현재 적용값은 아래 요약에서 바로 확인할 수 있습니다.")
+
+    if conflicts:
+        item_map = {item["field"]: item["label"] for item in current_items}
+        warning_parts = []
+        for hotkey, fields in conflicts.items():
+            labels = ", ".join(item_map.get(field, field) for field in fields)
+            warning_parts.append(f"{hotkey_display_text(hotkey)} 중복({labels})")
+        messages.append("충돌 주의: " + " | ".join(warning_parts))
+    return " ".join(messages)
 class AppRuntimeMixin:
+    def set_model_prepare_state(
+        self,
+        phase: str,
+        *,
+        first_attempt: bool = False,
+        error: str = "",
+        log_message: bool = True,
+    ):
+        brief, detail = describe_model_prepare_state(
+            self.s.whisper_model,
+            phase,
+            first_attempt=first_attempt,
+            error=error,
+        )
+        self.model_status_brief = brief
+        self.refresh_quick_start()
+        try:
+            self.root.update_idletasks()
+        except Exception:
+            pass
+        if log_message:
+            self.log(detail)
+
+    def summarize_all_hotkeys(self) -> str:
+        return summarize_hotkey_group("현재 앱 단축키", app_hotkey_items(self.s))
+
+    def refresh_hotkey_overview(self, feedback: str | None = None):
+        self.quick_start_hotkeys.set(summarize_hotkey_group("현재 런처 단축키", launcher_hotkey_items(self.s)))
+        self.app_hotkey_summary.set(self.summarize_all_hotkeys())
+        if feedback is not None:
+            self.hotkey_feedback.set(feedback)
+
+    def refresh_quick_start(self):
+        summary, checklist, paths, trouble = first_run_guidance(
+            self.s,
+            input_device_count=len(getattr(self, "devices", [])),
+            model_status=self.model_status_brief,
+            hotkey_status=self.hotkey_status_brief,
+        )
+        self.quick_start_summary.set(summary)
+        self.quick_start_checklist.set(checklist)
+        self.quick_start_paths.set(paths)
+        self.quick_start_trouble.set(trouble)
+        self.refresh_hotkey_overview()
+
     def refresh_tuning_status(self):
         suggestion = self.listen.tuning_snapshot()
         if suggestion.ready:
@@ -95,6 +260,7 @@ class AppRuntimeMixin:
             self.log(f"Startup target focus skipped: {exc}")
 
     def save_from_ui(self):
+        previous_hotkeys = {item["field"]: item["value"] for item in hotkey_items(self.s)}
         for key, var in self.vars.items():
             current = getattr(self.s, key)
             raw = var.get().strip()
@@ -110,6 +276,9 @@ class AppRuntimeMixin:
             elif key == "output_mode":
                 setattr(self.s, key, normalize_output_mode_value(raw))
                 self.vars["output_mode"].set(self.s.output_mode)
+            elif key.endswith("_hotkey"):
+                setattr(self.s, key, normalize_hotkey_value(raw, fallback=str(current)))
+                self.vars[key].set(getattr(self.s, key))
             elif isinstance(current, int):
                 setattr(self.s, key, int(raw or "0"))
             elif isinstance(current, float):
@@ -130,7 +299,11 @@ class AppRuntimeMixin:
         self.refresh_status()
         self.refresh_audio_status()
         self.refresh_tuning_status()
+        self.refresh_quick_start()
         self._sync_llm_status_idle()
+        feedback = describe_hotkey_update(previous_hotkeys, self.s)
+        self.refresh_hotkey_overview(feedback=feedback)
+        self.log(feedback)
         self.log("Settings saved")
 
     def apply_always_listen_tuning(self):
@@ -184,6 +357,8 @@ class AppRuntimeMixin:
         try:
             import keyboard
         except Exception as exc:
+            self.hotkey_status_brief = f"단축키 사용 불가 ({exc})"
+            self.refresh_quick_start()
             self.log(f"Hotkeys unavailable: {exc}")
             return
         try:
@@ -196,8 +371,12 @@ class AppRuntimeMixin:
             keyboard.add_hotkey(self.s.paste_last_hotkey, self.paste_last, suppress=False, trigger_on_release=False)
             keyboard.add_hotkey(self.s.toggle_output_hotkey, self.cycle_output, suppress=False, trigger_on_release=False)
             keyboard.add_hotkey(self.s.toggle_enter_hotkey, self.toggle_enter, suppress=False, trigger_on_release=False)
+            self.hotkey_status_brief = "단축키 등록됨"
+            self.refresh_quick_start()
             self.log("Hotkeys registered")
         except Exception as exc:
+            self.hotkey_status_brief = f"단축키 등록 실패 ({exc})"
+            self.refresh_quick_start()
             self.log(f"Hotkey registration failed: {exc}")
 
     def beep(self, kind):
@@ -321,28 +500,78 @@ class AppRuntimeMixin:
     def warmup_model(self):
         started = time.perf_counter()
         path = None
+        first_attempt = not bool(getattr(self.backend, "cache", {}))
         try:
-            self.root.update_idletasks()
-            self.log(f"Model warmup started for {self.s.whisper_model}")
+            self.set_model_prepare_state("loading", first_attempt=first_attempt)
             self.backend._model(self.s)
+            self.set_model_prepare_state("warming", log_message=False)
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as handle:
                 path = Path(handle.name)
             sf.write(path, np.zeros(max(int(self.s.sample_rate * 0.35), 1), dtype=np.float32), self.s.sample_rate)
             self.backend.transcribe(path, self.s)
+            self.set_model_prepare_state("ready", log_message=False)
             self.log(f"Model warmup finished in {time.perf_counter() - started:.2f}s")
         except Exception as exc:
-            self.log(f"Model warmup skipped: {exc}")
+            if path is None:
+                self.set_model_prepare_state("load_failed", error=str(exc), log_message=False)
+            else:
+                self.set_model_prepare_state("warmup_failed", error=str(exc), log_message=False)
+            self.log(f"Model warmup failed: {exc}")
         finally:
             if path is not None:
                 try:
                     path.unlink(missing_ok=True)
                 except Exception:
                     pass
+            self.refresh_quick_start()
             self.refresh_status()
 
     def show_doctor(self):
-        self.log_text.insert("end", "\n" + doctor(self.s) + "\n")
+        self.last_doctor_report = doctor(self.s)
+        self.log_text.insert("end", "\n" + self.last_doctor_report + "\n")
         self.log_text.see("end")
+
+    def copy_doctor_report(self):
+        self.last_doctor_report = doctor(self.s)
+        self.copy_clip(self.last_doctor_report)
+        self.log("Doctor report copied to clipboard")
+
+    def export_diagnostic_bundle(self):
+        self.last_doctor_report = doctor(self.s)
+        bundle_path = create_diagnostic_bundle(self.s, doctor_report=self.last_doctor_report)
+        self.log(f"Diagnostic bundle exported: {bundle_path}")
+        try:
+            messagebox.showinfo(APP_NAME, f"진단 번들을 저장했습니다.\n{bundle_path}")
+        except Exception:
+            pass
+        return bundle_path
+
+    def _open_path(self, path: Path, *, fallback_to_parent: bool = False, label: str = "path") -> bool:
+        target = path
+        if fallback_to_parent and not target.exists():
+            target = target.parent
+        try:
+            if os.name == "nt":
+                os.startfile(str(target))
+            elif target.is_dir():
+                subprocess.Popen(["xdg-open", str(target)])
+            else:
+                subprocess.Popen(["xdg-open", str(target.parent)])
+            self.log(f"Opened {label}: {target}")
+            return True
+        except Exception as exc:
+            self.log(f"Failed to open {label}: {exc}")
+            messagebox.showerror(APP_NAME, f"{label} 열기에 실패했습니다.\n{exc}")
+            return False
+
+    def open_settings_path(self):
+        return self._open_path(SETTINGS_PATH, fallback_to_parent=True, label="settings")
+
+    def open_log_path(self):
+        return self._open_path(LOG_PATH, fallback_to_parent=True, label="log")
+
+    def open_data_root(self):
+        return self._open_path(DATA_ROOT, fallback_to_parent=False, label="data root")
 
     def poll(self):
         try:
@@ -415,6 +644,7 @@ class AppRuntimeMixin:
     def poll_diagnostics(self):
         self.refresh_audio_status()
         self.refresh_tuning_status()
+        self.refresh_quick_start()
         self.root.after(120, self.poll_diagnostics)
 
     def poll_target(self):

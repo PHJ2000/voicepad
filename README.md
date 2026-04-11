@@ -72,6 +72,8 @@ dist\Voicepad.exe
 - 예전 버전처럼 `exe` 또는 소스 폴더 옆에 `codex_dictation.settings.json`, `codex_dictation.history.jsonl`, `codex_dictation.log`가 남아 있으면 첫 실행 때 새 위치로 이어받습니다.
 - 첫 실행 시 `faster-whisper` 모델이 PC에 없다면 모델 다운로드는 여전히 한 번 필요합니다.
 - 전역 핫키는 기존처럼 `tools\AutoHotkey` 또는 `run_codex_hotkeys.bat` 흐름을 같이 쓰는 것이 가장 편합니다.
+- 빌드 중 `Hugging Face`, `PyInstaller` 캐시는 저장소 안 `outputs\build-env\` 아래로 고정해 재현성을 높였습니다.
+- 배포 패키지나 저장소 루트에서는 `run_voicepad.bat` 하나를 기본 진입점으로 쓰는 것을 권장합니다.
 
 ## 릴리즈 패키지 만들기
 
@@ -91,6 +93,7 @@ release\Voicepad-win64\
   README.md
   codex_dictation.settings.example.json
   launch_codex_dictation.ahk
+  run_voicepad.bat
   run_codex_dictation.bat
   run_codex_hotkeys.bat
   run_codex_terminal.bat
@@ -99,11 +102,19 @@ release\Voicepad-win64\
 
 같은 위치에 `Voicepad-win64.zip`도 함께 만들어지므로 GitHub Releases 자산으로 올리기 좋습니다.
 
+GitHub Releases 기준 태그 규칙, 릴리즈 노트 형식, 업로드 전 체크리스트는 [docs/release-process.md](./docs/release-process.md)에 따로 정리되어 있습니다.
+
 배포 패키지 기준 권장 실행 순서:
 1. `Voicepad-win64.zip`을 원하는 폴더에 압축 해제
-2. `run_codex_hotkeys.bat` 실행
-3. 이후 `F1`로 앱 실행 또는 최소화
-4. 설정 확인이 필요하면 `F2`
+2. `run_voicepad.bat` 실행
+3. 앱이 뜨면 상단 `Quick Start`에서 `단축키` 상태와 안내 문구를 먼저 확인
+4. 기본값 기준으로는 `F1`로 다시 호출하거나 최소화하고, 설정 확인은 `F2`로 엽니다.
+5. 핫키 설정 기능이 포함된 버전이라면 이후에는 README의 기본값보다 앱 안에 표시된 현재 적용 키를 우선해서 봅니다.
+
+고급 실행 흐름:
+- `run_codex_dictation.bat`: 앱 본체만 직접 실행
+- `run_codex_hotkeys.bat`: 전역 핫키만 먼저 켜기
+- `run_codex_terminal.bat`: 터미널만 빠르게 열기
 
 핫키 없이 앱만 먼저 확인하고 싶다면:
 1. `run_codex_dictation.bat`로 앱 본체만 직접 실행
@@ -112,6 +123,36 @@ release\Voicepad-win64\
 - 배포 패키지는 `exe`, 배치 런처, `AutoHotkey` 엔진만 포함하므로 Python 설치가 없어도 실행할 수 있습니다.
 - 첫 실행 시 `faster-whisper` 모델 다운로드는 여전히 한 번 필요할 수 있습니다.
 - GitHub Releases에는 `Voicepad-win64.zip` 하나만 올려도 사용자가 필요한 파일을 한 번에 받을 수 있습니다.
+
+## 릴리즈 전 스모크 테스트
+
+릴리즈 직전에 기본 검증을 한 번에 반복하려면 아래 스크립트를 사용합니다.
+이 스크립트는 `unittest`, `--version`, `--doctor`, 패키징 검증을 차례대로 실행하고 결과를 `outputs\release-smoke\` 아래에 남깁니다.
+
+```powershell
+.\run_release_smoke.ps1
+```
+
+필요하면 worktree 밖 가상환경을 직접 지정할 수도 있습니다.
+
+```powershell
+.\run_release_smoke.ps1 -PythonPath ..\exp\.venv\Scripts\python.exe
+```
+
+완료되면 아래 로그를 확인하면 됩니다.
+
+```text
+outputs\release-smoke\summary.txt
+outputs\release-smoke\unittest.txt
+outputs\release-smoke\version.txt
+outputs\release-smoke\doctor.txt
+outputs\release-smoke\package.txt
+```
+
+메모:
+- 스모크 테스트 중 `LOCALAPPDATA`는 저장소 안 `outputs\release-smoke\localappdata\`로 고정해 실제 사용자 환경을 더럽히지 않습니다.
+- `--doctor`는 설정 파일을 자동 생성할 수 있으므로, 릴리즈 검증은 이 스크립트로 돌리는 편이 가장 안전합니다.
+- 현재 PyInstaller 로그에는 간헐적으로 파일 잠금 관련 재시도 경고가 한 줄 보일 수 있는데, 최종 `Build complete!`가 뜨면 패키징 성공으로 봐도 됩니다.
 
 ## 실행
 
@@ -122,10 +163,16 @@ release\Voicepad-win64\
 루트 런처로 실행:
 
 ```powershell
+.\run_voicepad.bat
+```
+
+앱 본체만 직접 실행:
+
+```powershell
 .\run_codex_dictation.bat
 ```
 
-`Voicepad.exe`가 `dist\` 아래에 있으면 같은 런처가 자동으로 `exe`를 우선 실행합니다.
+`run_voicepad.bat`는 전역 핫키 런처를 먼저 켠 뒤 앱 본체를 시작합니다. `Voicepad.exe`가 `dist\` 아래에 있으면 앱 실행 단계에서는 자동으로 `exe`를 우선 사용합니다.
 
 Codex 터미널만 빠르게 열기:
 
@@ -137,16 +184,34 @@ Codex 터미널만 빠르게 열기:
 
 처음 실행할 때는 아래 순서로 확인하는 것이 가장 빠릅니다.
 
-1. 앱이 켜지면 상단 제목에 버전이 보이는지 확인합니다.
-2. `Doctor` 버튼 또는 `--doctor` 명령으로 현재 환경을 점검합니다.
-3. `Input Device`가 실제 마이크로 잡혀 있는지 확인합니다.
-4. 항상 듣기나 수동 녹음을 한 번 짧게 실행해 로그에 전사 결과가 남는지 확인합니다.
-5. 로그와 설정 파일 위치는 `%LOCALAPPDATA%\Voicepad\` 아래를 먼저 봅니다.
+1. 앱이 켜지면 상단 `Quick Start` 박스에서 `마이크`, `모델`, `단축키` 상태를 먼저 봅니다.
+2. `단축키` 영역에 등록 성공으로 보이는지, 그리고 안내된 키가 지금 내가 누를 키와 맞는지 먼저 확인합니다.
+3. 기본값 기준으로는 `F1`이 앱 호출 또는 최소화, `F2`가 설정 창 표시, `F3`가 설정 창 숨기기, `F4`가 앱 종료입니다.
+4. 핫키 설정 기능이 포함된 버전이라면 `Quick Start`와 설정 화면에 보이는 값이 현재 적용 키입니다. README의 기본값보다 앱 안의 표시를 우선해서 확인합니다.
+5. `Input Device`가 실제 마이크로 잡혀 있는지 확인합니다.
+6. `F8` 수동 녹음 또는 `F7` 항상 듣기로 한 문장만 짧게 테스트합니다.
+7. 핫키를 바꾼 직후라면, 바꾼 키로 `설정 창 열기`나 `앱 다시 호출`이 실제로 되는지 바로 한 번 더 눌러 확인합니다.
+8. 결과가 없으면 `Doctor 보기` 또는 `Doctor 복사`로 현재 환경을 확인합니다.
+9. 이슈나 지원 요청을 보낼 때는 `진단 번들` 버튼으로 `Doctor + 설정 스냅샷 + 최근 로그` zip을 먼저 내보냅니다.
+10. `설정 열기`, `로그 열기`, `데이터 폴더` 버튼으로 바로 관련 위치를 엽니다.
 
 대표적으로 확인할 파일:
 - 설정: `%LOCALAPPDATA%\Voicepad\codex_dictation.settings.json`
 - 기록: `%LOCALAPPDATA%\Voicepad\codex_dictation.history.jsonl`
 - 로그: `%LOCALAPPDATA%\Voicepad\codex_dictation.log`
+
+앱 내부 빠른 안내:
+- `Quick Start` 첫 줄: 현재 마이크 감지 수, 모델 준비 상태, 단축키 등록 상태
+- `Doctor 보기`: 활동 로그 창에 전체 진단 결과 출력
+- `Doctor 복사`: 이슈나 채팅에 붙여넣기 쉬운 진단 결과 복사
+- `진단 번들`: `Doctor`, 설정 스냅샷, 최근 로그를 한 번에 zip으로 저장. 사용자 홈 경로와 데이터 루트 경로, `Initial Prompt`는 마스킹합니다.
+- `설정 열기` / `로그 열기` / `데이터 폴더`: 대표 실패 상황을 바로 확인할 수 있는 빠른 이동 버튼
+
+핫키가 기대대로 동작하지 않을 때 먼저 볼 것:
+- `Quick Start`의 `단축키` 상태가 등록 성공인지 확인합니다.
+- 설정 가능한 버전에서는 설정 화면에 적힌 키 조합이 현재 적용값인지 확인합니다.
+- 다른 앱이 같은 조합을 먼저 잡고 있을 수 있으니, 반응이 없으면 겹칠 만한 유틸리티나 런처를 잠시 꺼 두고 다시 확인합니다.
+- 변경 직후에는 `설정 창 열기`와 `앱 다시 호출`처럼 눈에 바로 보이는 동작부터 먼저 눌러 보는 편이 안전합니다.
 
 ## AutoHotkey 런처
 
@@ -161,10 +226,22 @@ Codex 터미널만 빠르게 열기:
 
 `F1`로 실행할 때는 현재 작업 중이던 창으로 다시 돌아가도록 맞춰져 있어서, 터미널뿐 아니라 일반 입력창에서도 바로 이어서 말할 수 있습니다.
 
+핫키를 설정할 수 있는 버전이라면:
+- 위 목록은 `기본값`으로 이해하면 됩니다.
+- 실제 현재 적용 키는 앱의 `Quick Start`와 설정 화면에 표시된 값을 우선해서 봅니다.
+- 변경 후에는 `설정 창 열기`와 `앱 호출`처럼 확인이 쉬운 동작부터 바로 테스트하는 것이 좋습니다.
+- 자주 쓰는 다른 프로그램과 충돌할 수 있으니, 이미 익숙한 시스템 전역 단축키와 겹치지 않는 조합을 권장합니다.
+
 편하게 실행하는 방법:
 1. `.\run_codex_hotkeys.bat` 실행
 2. 이후엔 `F1`만 누르면 됩니다
 3. 시작프로그램에 등록해두면 로그인 후에도 자동으로 살아납니다
+
+충돌이 의심될 때:
+1. 먼저 앱을 열어 `Quick Start`의 `단축키` 상태를 확인합니다.
+2. 설정 가능한 버전이라면 현재 적용 키가 내가 누른 키와 같은지 확인합니다.
+3. 반응이 없다면 PowerToys, 다른 AutoHotkey 스크립트, 매크로 툴, 게임 런처처럼 전역 키를 잡을 수 있는 프로그램과 겹치는지 의심해 봅니다.
+4. 키를 바꿨다면 바꾼 직후 한 번은 `설정 창 열기` 동작부터 다시 확인해 두는 편이 덜 헷갈립니다.
 
 ## 추천 사용 흐름
 
@@ -290,6 +367,8 @@ Codex 터미널만 빠르게 열기:
 ```powershell
 .venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
+
+릴리즈 직전에는 위 검증에 더해 `.\package_codex_dictation_release.ps1`까지 다시 실행하고, 상세 순서는 [docs/release-process.md](./docs/release-process.md)를 기준으로 맞춥니다.
 
 ## 메모
 
