@@ -3,6 +3,7 @@ from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk
 
+from codex_dictation_app_runtime import release_status_text
 from codex_dictation_settings import APP_NAME, APP_VERSION, AUDIO_PRESET_UI_LABELS, audio_preset_label
 
 
@@ -34,15 +35,17 @@ class AppUIMixin:
         ttk.Label(qs, textvariable=self.quick_start_paths, font=("Consolas", 9), wraplength=920, justify="left").grid(row=3, column=0, sticky="w", pady=(6, 0))
         ttk.Label(qs, textvariable=self.quick_start_trouble, wraplength=920, justify="left").grid(row=4, column=0, sticky="w", pady=(6, 0))
         ttk.Label(qs, textvariable=self.hotkey_feedback, wraplength=920, justify="left").grid(row=5, column=0, sticky="w", pady=(6, 0))
+        ttk.Label(qs, text=release_status_text(), wraplength=920, justify="left").grid(row=6, column=0, sticky="w", pady=(6, 0))
         quick_btn = ttk.Frame(qs)
-        quick_btn.grid(row=6, column=0, sticky="ew", pady=(10, 0))
-        for index in range(5):
+        quick_btn.grid(row=7, column=0, sticky="ew", pady=(10, 0))
+        for index in range(6):
             quick_btn.columnconfigure(index, weight=1)
         ttk.Button(quick_btn, text="Doctor 보기", command=self.show_doctor).grid(row=0, column=0, sticky="ew")
         ttk.Button(quick_btn, text="Doctor 복사", command=self.copy_doctor_report).grid(row=0, column=1, sticky="ew", padx=6)
         ttk.Button(quick_btn, text="설정 열기", command=self.open_settings_path).grid(row=0, column=2, sticky="ew")
         ttk.Button(quick_btn, text="로그 열기", command=self.open_log_path).grid(row=0, column=3, sticky="ew", padx=6)
         ttk.Button(quick_btn, text="데이터 폴더", command=self.open_data_root).grid(row=0, column=4, sticky="ew")
+        ttk.Button(quick_btn, text="업데이트 확인", command=self.open_release_page).grid(row=0, column=5, sticky="ew", padx=(6, 0))
         ttk.Label(head, textvariable=self.audio_status, font=("Consolas", 9)).grid(row=5, column=0, columnspan=2, sticky="w", pady=(8, 0))
         ttk.Label(head, textvariable=self.llm_status, font=("Consolas", 9)).grid(row=6, column=0, columnspan=2, sticky="w", pady=(4, 0))
         top = ttk.Frame(self.root, padding=(12, 0, 12, 0))
