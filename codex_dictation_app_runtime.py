@@ -8,6 +8,7 @@ import tempfile
 import threading
 import time
 import traceback
+import webbrowser
 from pathlib import Path
 
 import numpy as np
@@ -18,6 +19,7 @@ from codex_dictation_audio import trim_silence
 from codex_dictation_diagnostics import create_diagnostic_bundle, doctor, first_run_guidance
 from codex_dictation_settings import (
     APP_NAME,
+    APP_VERSION,
     DATA_ROOT,
     LOG_PATH,
     SETTINGS_PATH,
@@ -39,6 +41,7 @@ from codex_dictation_settings import (
 from codex_dictation_targeting import APP_PID, fg_info, focus_best_terminal, focus_window, is_target_window, target_context_key
 from codex_dictation_utils import append_history, normalize_text
 
+RELEASES_URL = "https://github.com/PHJ2000/voicepad/releases"
 def hotkey_display_text(value: str) -> str:
     parts = [part for part in (value or "").split("+") if part]
     formatted: list[str] = []
@@ -138,6 +141,8 @@ def describe_hotkey_update(previous_values: dict[str, str], settings) -> str:
             warning_parts.append(f"{hotkey_display_text(hotkey)} 중복({labels})")
         messages.append("충돌 주의: " + " | ".join(warning_parts))
     return " ".join(messages)
+def release_status_text() -> str:
+    return f"현재 버전 v{APP_VERSION} | 새 버전 확인과 다운로드: GitHub Releases"
 class AppRuntimeMixin:
     def set_model_prepare_state(
         self,
@@ -535,6 +540,16 @@ class AppRuntimeMixin:
         self.last_doctor_report = doctor(self.s)
         self.copy_clip(self.last_doctor_report)
         self.log("Doctor report copied to clipboard")
+
+    def open_release_page(self):
+        try:
+            webbrowser.open(RELEASES_URL)
+            self.log(f"Opened releases page: {RELEASES_URL}")
+            return True
+        except Exception as exc:
+            self.log(f"Failed to open releases page: {exc}")
+            messagebox.showerror(APP_NAME, f"업데이트 페이지 열기에 실패했습니다.\n{exc}")
+            return False
 
     def export_diagnostic_bundle(self):
         self.last_doctor_report = doctor(self.s)

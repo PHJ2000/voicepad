@@ -9,8 +9,14 @@ PROJECT_DIR = Path(__file__).resolve().parents[1]
 if str(PROJECT_DIR) not in sys.path:
     sys.path.insert(0, str(PROJECT_DIR))
 
-from codex_dictation_app_runtime import describe_hotkey_update, hotkey_display_text, summarize_hotkey_group  # noqa: E402
-from codex_dictation_settings import Settings, app_hotkey_items, launcher_hotkey_items  # noqa: E402
+from codex_dictation_app_runtime import (  # noqa: E402
+    RELEASES_URL,
+    describe_hotkey_update,
+    hotkey_display_text,
+    release_status_text,
+    summarize_hotkey_group,
+)
+from codex_dictation_settings import APP_VERSION, Settings, app_hotkey_items, launcher_hotkey_items  # noqa: E402
 
 
 class HotkeyFeedbackTests(unittest.TestCase):
@@ -39,6 +45,15 @@ class HotkeyFeedbackTests(unittest.TestCase):
         self.assertIn("런처가 실행 중이면 잠시 뒤 새 설정을 다시 읽습니다.", feedback)
         self.assertIn("충돌 주의:", feedback)
         self.assertIn("Ctrl+Alt+Space", feedback)
+
+    def test_release_status_text_mentions_current_version_and_releases(self):
+        text = release_status_text()
+
+        self.assertIn(f"v{APP_VERSION}", text)
+        self.assertIn("GitHub Releases", text)
+
+    def test_releases_url_targets_voicepad_releases_page(self):
+        self.assertEqual(RELEASES_URL, "https://github.com/PHJ2000/voicepad/releases")
 
 
 if __name__ == "__main__":
