@@ -35,6 +35,11 @@ Codex CLI와 일반 입력창에서 마이크로 말한 내용을 받아써서 �
 - 브랜치, 이슈 제목, PR 제목, 셀프 리뷰, 리뷰 지적 PR 재처리 규칙은 [CONTRIBUTING.md](./CONTRIBUTING.md)에 정리되어 있습니다.
 - GitHub 이슈/PR 작성 시에는 저장소에 포함된 템플릿을 우선 사용합니다.
 
+## 릴리즈 참고 문서
+
+- 릴리즈 순서와 배포 자산 기준: [docs/release-process.md](./docs/release-process.md)
+- beta 종료 기준과 정식 릴리즈 게이트: [docs/beta-release-gate.md](./docs/beta-release-gate.md)
+
 ## 설치
 
 가상환경이 없다면 먼저 만듭니다.
