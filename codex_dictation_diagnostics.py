@@ -66,8 +66,13 @@ def first_run_guidance(
     failure_hints: list[str] = []
     if input_device_count is not None and input_device_count <= 0:
         failure_hints.append("마이크가 안 보이면 장치 연결 후 Doctor의 Input devices를 확인")
+    if "다운로드/로드 중" in model_detail:
+        failure_hints.append("첫 실행이면 모델 다운로드가 길 수 있으니 로그가 계속 갱신되는지 확인")
+    if "워밍업 중" in model_detail:
+        failure_hints.append("모델 워밍업 중에는 첫 응답이 잠시 느릴 수 있습니다")
     if "실패" in model_detail or "건너뜀" in model_detail:
         failure_hints.append("모델 준비가 느리면 첫 다운로드 또는 warmup 로그를 확인")
+        failure_hints.append("모델 준비에 실패하면 로그와 네트워크 또는 저장공간 상태를 함께 확인")
     if "실패" in hotkey_detail or "불가" in hotkey_detail:
         failure_hints.append("단축키가 안 먹으면 keyboard 모듈과 실행 권한을 확인")
     if not failure_hints:
